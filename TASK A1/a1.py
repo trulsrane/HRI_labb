@@ -6,7 +6,7 @@
 Multi-modal demo that chains:
   1. Person detection — Pepper waits until someone stands in front of it.
   2. Greeting        — Pepper greets the person with speech + animation.
-  3. STT query       — Pepper asks for confirmation ("ready?") and checks STT.
+  3. Information     — Pepper asks for confirmation ("ready?") and checks STT.
   4. Tablet menu     — Pepper shows a 4-option image-card menu on the tablet.
   5. Reaction        — Pepper reacts differently to each card selection:
        • Weather → speaks a weather forecast and shows info page

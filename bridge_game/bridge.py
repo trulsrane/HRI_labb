@@ -62,20 +62,36 @@ GREETINGS = [
     #"Hi there! I'm Pepper, your personal assistant robot. So glad to see you!",
     #"Hello! I spotted you — I'm Pepper. Let me help you today!",
     #"Great, a visitor! I am Pepper. Welcome!",
-    "Hello Jesper senpai. I can do lots of fun things. Let's get started!",
+    "Oh boy, I sure love playing with these blocks!"
 ]
 
 READY_QUESTION = (
-    "Are you ready to interact with me? "
-    "Say yes whenever you are!"
+    "Do you want to play this with me jesper senpai?"
+    "Say yes if so!"
 )
 
 CONFIRM_KEYWORDS = ("yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go")
 
-MENU_INTRO = (
-    "Perfect! I have a few things I can do for you. "
-    "Please pick one on my tablet!"
+DENY_KEYWORDS = ("no", "nope")
+
+GAME_INTRO = (
+    "Perfect! This game is about making a bridge to connect the princess and the knight."
+    "Unfortunately, my arms are only for waving, so you would have to move the blocks."
+    "Which level do you want to play? "
 )
+ON_DENY = (
+    "Alright, let me know if you change your mind."
+)
+
+GAME_INTRO = (
+    "Starter, junior, expert, or master. Say which one you want! 1, 2, 3, 4, or the color works too!"
+)
+
+BEGINNER_KEYWORD = ("1", "one", "green","starter")
+INTERMEDIATE_KEYWORD = ("2", "two", "yellow", "junior")
+ADVANCED_KEYWORD = ("3", "three", "red", "expert")
+EXPERT_KEYWORD = ("4", "four", "purple", "master")
+
 
 REACTIONS = {
     "Weather": {

@@ -1,0 +1,12 @@
+{
+    "Weather": {
+        "speech": [
+            "Great choice! Here is today's weather forecast: ",
+            "It's a lovely sunny day with temperatures around 20 degrees. ",
+            "Perfect for a walk outside!"
+        ],
+        "animation": "animations/Stand/Gestures/ShowSky_2",
+        "tablet": ["info.html", "title=Weather+Forecast&result=Sunny+20°C — perfect+for+a+walk!"],
+        "led": "happy"
+    }
+}

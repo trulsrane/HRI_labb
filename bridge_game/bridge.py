@@ -74,24 +74,34 @@ CONFIRM_KEYWORDS = ("yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go")
 
 DENY_KEYWORDS = ("no", "nope")
 
+FINISHED_KEYWORDS = ("finish", "finished", "done")
+
 GAME_INTRO = (
-    "Perfect! This game is about making a bridge to connect the princess and the knight."
-    "Unfortunately, my arms are only for waving, so you would have to move the blocks."
+    "Perfect! This game is about making a bridge to connect the princess and the knight. "
+    "Unfortunately, my arms are only for waving, so you would have to move the blocks. "
     "Which level do you want to play? "
+    "Starter, junior, expert, or master. Say which one you want! 1, 2, 3, 4, or the color works too!"
 )
+
+GAME_INTRO_ALT = (
+    "Perfect! This game is about making a bridge to connect the princess and the knight. "
+    "Unfortunately, my arms are only for waving, so you would have to move the blocks. "
+    "Are you ready? "
+)
+
 ON_DENY = (
     "Alright, let me know if you change your mind."
 )
 
-GAME_INTRO = (
-    "Starter, junior, expert, or master. Say which one you want! 1, 2, 3, 4, or the color works too!"
+STARTER_KEYWORDS = ("1", "one", "green","starter")
+JUNIOR_KEYWORDS = ("2", "two", "yellow", "junior")
+EXPERT_KEYWORDS = ("3", "three", "red", "expert")
+MASTER_KEYWORDS = ("4", "four", "purple", "master")
+
+
+LEVEL_SHOWCASE = (
+    "Look at my tablet to see how to set up the level. Let me know when you are done by saying yes!"
 )
-
-BEGINNER_KEYWORD = ("1", "one", "green","starter")
-INTERMEDIATE_KEYWORD = ("2", "two", "yellow", "junior")
-ADVANCED_KEYWORD = ("3", "three", "red", "expert")
-EXPERT_KEYWORD = ("4", "four", "purple", "master")
-
 
 REACTIONS = {
     "Weather": {
@@ -195,6 +205,44 @@ def _wait_for_confirmation(
         return False
     _log(f"Heard: '{transcript}'")
     return any(kw in transcript.lower() for kw in keywords)
+
+
+def _wait_for_level_select(
+    stt: "SpeechToText",
+    keywords_1: tuple = STARTER_KEYWORDS,
+    keywords_2: tuple = JUNIOR_KEYWORDS,
+    keywords_3: tuple = EXPERT_KEYWORDS,
+    keywords_4: tuple = MASTER_KEYWORDS,
+) -> int:
+    """
+    Listen for keywords associated with a specific level.
+    Returns the level number of the matched keyword, and 0 if keyword doesnt match.
+    """
+    _log(f"Listening for confirmation (keywords: {keywords_1, keywords_2, keywords_3, keywords_4}) …")
+    transcript = stt.listen()
+    if not transcript:
+        _log("No speech heard.")
+        return 0
+    _log(f"Heard: '{transcript}'")
+
+
+    response = transcript
+
+    # process response …
+    if any(kw in transcript.lower() for kw in keywords_1):
+        return 1
+        
+    elif any(kw in transcript.lower() for kw in keywords_2):
+        return 2
+
+    elif any(kw in transcript.lower() for kw in keywords_3):
+        return 3
+
+    elif any(kw in transcript.lower() for kw in keywords_4):
+        return 4
+    else:
+        return 0
+
 
 
 def _wait_for_menu_choice(timeout: float = 30.0) -> dict:
@@ -345,64 +393,105 @@ def run_scenario(
 
     if not confirmed:
         tts.speak(
-            "I didn't quite catch that. Let me show you the menu anyway!", animated=True
+            "I didn't quite catch that. Let us play anyway!", animated=True
         )
 
     # ── 4. Show image-card menu ───────────────────────────────────────────
     _led(leds, "happy")
-    tts.speak(MENU_INTRO, animated=True)
+    tts.speak(GAME_INTRO, animated=True)
 
-    menu_url = _build_tablet_url(
-        dashboard_url,
-        "menu_demo.html",
-        "title=What+can+I+help+with%3F&subtitle=Tap+a+card+to+choose",
-        on_robot,
-    )
-    tablet.show_webview(menu_url)
+    stt.register_and_subscribe()
+    confirmed = _wait_for_level_select(stt)
+    stt.unsubscribe()
+
+    levels = ["starter", "junior", "expert", "master"]
+
+    if confirmed:
+        tts.speak(
+            "You chose " + levels[confirmed - 1] + " level. Let us begin. ", animated=True
+        )
+    else:
+        tts.speak(
+            "I didn't quite catch that. Don't worry, I'll pick for you. Let's go with master. ", animated=True
+        )
+
+    # menu_url = _build_tablet_url(
+    #     dashboard_url,
+    #     "menu_demo.html",
+    #     "title=What+can+I+help+with%3F&subtitle=Tap+a+card+to+choose",
+    #     on_robot,
+    # )
+    # tablet.show_webview(menu_url)
 
     # ── 5. Wait for choice and react ────────────────────────────────────
-    choice_event = _wait_for_menu_choice(timeout=60.0)
+        
+    _led(leds, "happy")
+    tts.speak(LEVEL_SHOWCASE, animated=True)
 
-    if not choice_event:
+    stt.register_and_subscribe()
+    confirmed = _wait_for_confirmation(stt, keywords= FINISHED_KEYWORDS)
+    stt.unsubscribe()
+
+    if not confirmed:
         tts.speak(
-            "Hmm, it seems you haven't chosen anything. "
-            "That's okay, I'll be here when you're ready!",
-            animated=True,
+            "Are you finished, or do you need a hint?", animated=True
         )
-        tablet.hide()
-        _led(leds, "off")
-        return
 
-    topic = choice_event.get("value", "")
-    reaction = REACTIONS.get(topic)
 
-    if not reaction:
-        tts.speak(f"Interesting choice: {topic}! I'm not sure how to respond to that one.", animated=True)
-        tablet.hide()
-        return
 
-    _log(f"Reacting to: {topic}")
+    
+    # choice_event = _wait_for_menu_choice(timeout=60.0)
 
-    # Show reaction on tablet first (non-blocking)
-    tab_page, tab_params = reaction["tablet"]
-    tablet.show_webview(_build_tablet_url(dashboard_url, tab_page, tab_params, on_robot))
+    # if not choice_event:
+    #     tts.speak(
+    #         "Hmm, it seems you haven't chosen anything. "
+    #         "That's okay, I'll be here when you're ready!",
+    #         animated=True,
+    #     )
+    #     tablet.hide()
+    #     _led(leds, "off")
+    #     return
 
-    # Set LEDs
-    _led(leds, reaction["led"])
+    # topic = choice_event.get("value", "")
+    # reaction = REACTIONS.get(topic)
 
-    # Play animation and speak simultaneously
-    anim.run_async(reaction["animation"])
-    tts.speak(reaction["speech"], animated=True)
+    # if not reaction:
+    #     tts.speak(f"Interesting choice: {topic}! I'm not sure how to respond to that one.", animated=True)
+    #     tablet.hide()
+    #     return
 
-    time.sleep(1.5)
+    # _log(f"Reacting to: {topic}")
+
+    # # Show reaction on tablet first (non-blocking)
+    # tab_page, tab_params = reaction["tablet"]
+    # tablet.show_webview(_build_tablet_url(dashboard_url, tab_page, tab_params, on_robot))
+
+    # # Set LEDs
+    # _led(leds, reaction["led"])
+
+    # # Play animation and speak simultaneously
+    # anim.run_async(reaction["animation"])
+    # tts.speak(reaction["speech"], animated=True)
+
+    # time.sleep(1.5)
+        
+    
+
 
     # ── 6. Closing ────────────────────────────────────────────────────────
+    anim.run_async("animations/Stand/Gestures/BodyTalk_5")
     tts.speak(
-        "I hope you enjoyed our interaction! "
-        "Come back anytime, I'll be right here.",
+        "Hooray, we did it!",
+        animated=True,
+    )
+    time.sleep(2.0)    
+
+    tts.speak(
+        "Thank you for playing. Come back anytime.",
         animated=True,
     )
     anim.run_async("animations/Stand/Gestures/BowShort_1")
+    
     time.sleep(2.0)
 
     tablet.hide()

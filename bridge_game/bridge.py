@@ -296,7 +296,7 @@ def check_solution(tts, stt, game, problem):
     tts.speak("Not quite — keep going.")
     return False
 
-def game_round(tts, stt, leds, problem):
+def game_round(tts, stt, leds, game, problem):
     """One full round of the bridge game. Returns True if solved."""
     present_problem(tts, stt, problem)
     hint_index = 0
@@ -319,7 +319,7 @@ def game_round(tts, stt, leds, problem):
             hint_index += 1
 
         elif any(kw in text for kw in FINISHED_KEYWORDS):
-            if check_solution(tts, stt, problem):
+            if check_solution(tts, stt, game, problem):
                 celebrate(tts, leds)
                 return True
             # wrong answer — fall through, the while loop continues
@@ -566,7 +566,7 @@ def run_scenario(
     _led(leds, "happy")
     tts.speak(LEVEL_SHOWCASE, animated=True)
 
-    game_round(tts, stt, leds, problem)
+    game_round(tts, stt, leds, game, problem)
 
 
 

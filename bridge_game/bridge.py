@@ -549,11 +549,10 @@ def run_scenario(
 
     # ── 4. Choose level ────────────────────────────────────────────────
     _led(leds, "happy")
-    tts.speak(GAME_INTRO, animated=True)
 
     tablet.show_webview(_build_tablet_url(dashboard_url, "levels.html", "", on_robot))
-    
     tts.speak(GAME_INTRO, animated=True)
+
 
     stt.register_and_subscribe()
     level = _wait_for_level_select(stt)

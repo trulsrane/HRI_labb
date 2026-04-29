@@ -100,7 +100,7 @@ MASTER_KEYWORDS = ("4", "four", "purple", "master")
 
 
 LEVEL_SHOWCASE = (
-    "Look at my tablet to see how to set up the level. Let me know when you are done by saying yes!"
+    "Look at my tablet to see how to set up the level. Let me know when you are done by saying 'done'."
 )
 
 REACTIONS = {
@@ -280,6 +280,65 @@ def present_problem(tts, stt, problem):
     tts.speak(problem["description"], animated=True)
     tts.speak("Say 'hint' if you need help, or 'done' when you are finished.")
 
+def check_solution(tts, stt, game, problem):
+    tts.speak("Tell me about your solution.")
+    stt.register_and_subscribe()
+    answer = stt.listen()
+    stt.unsubscribe()
+
+    if not answer:
+        tts.speak("I didn't hear that.")
+        return False
+
+    if game.check_solution(answer, problem):
+        return True
+
+    tts.speak("Not quite — keep going.")
+    return False
+
+def game_round(tts, stt, leds, problem):
+    """One full round of the bridge game. Returns True if solved."""
+    present_problem(tts, stt, problem)
+    hint_index = 0
+
+    while True:
+        stt.register_and_subscribe()
+        heard = stt.listen()
+        stt.unsubscribe()
+
+        if not heard:
+            tts.speak("You've gone quiet — let me give you a hint.")
+            give_hint(tts, problem, hint_index)
+            hint_index += 1
+            continue
+
+        text = heard.lower()
+
+        if any(kw in text for kw in ("hint", "help", "stuck")):
+            give_hint(tts, problem, hint_index)
+            hint_index += 1
+
+        elif any(kw in text for kw in FINISHED_KEYWORDS):
+            if check_solution(tts, stt, problem):
+                celebrate(tts, leds)
+                return True
+            # wrong answer — fall through, the while loop continues
+
+        else:
+            tts.speak("Say 'hint' for help, or 'done' when ready.")
+
+def give_hint(tts, problem, index):
+    hints = problem["hints"]
+    if index < len(hints):
+        tts.speak(f"Here's a hint. {hints[index]}")
+    else:
+        tts.speak("That's all the hints I have!")
+
+def celebrate(tts, leds):
+    leds.happy()
+    tts.speak("Congratulations! You solved the problem!", animated=True)
+
+
 class BridgeGame:
     PROBLEMS = [
         {
@@ -288,7 +347,8 @@ class BridgeGame:
             "hints": [
                 "Try placing one block on the left and one on the right, leaving a gap in the middle.",
                 "Make sure the blocks are close enough to each other to connect!",
-            ]
+            ],
+            "solution_keywords": ["yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go"]
         },
         {
             "id": "junior",
@@ -296,7 +356,8 @@ class BridgeGame:
             "hints": [
                 "You can use the two blocks to create a sloped bridge.",
                 "Try placing one block on the left and one on the right, then balance the third block on top to connect them!",
-            ]
+            ],
+            "solution_keywords": ["yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go"]
         },
         {
             "id": "expert",
@@ -304,7 +365,8 @@ class BridgeGame:
             "hints": [
                 "You can create a zig-zag pattern to connect the pieces.",
                 "Try placing two blocks on the left and two on the right, then balance the remaining blocks on top to connect them!",
-            ]
+            ],
+            "solution_keywords": ["yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go"]
         },
         {
             "id": "master",
@@ -312,12 +374,58 @@ class BridgeGame:
             "hints": [
                 "This one is tricky! You will need to create a more complex structure to connect all the pieces.",
                 "Try placing three blocks on the left and two on the right, then balance the remaining blocks on top to connect them all together!",
-            ]
+            ],
+            "solution_keywords": ["yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go"]
         }
     ]
-    def get_problem(self, level):
-        return self.PROBLEMS[level-1]
-    def check_solution(self, problem, answer):
+    def get_problem(self, level): return self.PROBLEMS[level-1]
+
+    def check_solution(self, answer, problem):
+        if not answer:
+            return False
+        text = answer.lower()
+        keywords = problem["solution_keywords"]
+        matches = sum(1 for kw in keywords if kw in text)
+        return matches >= 1
+
+def _run_tests():
+    game = BridgeGame()
+
+    # get_problem returns the right level
+    assert game.get_problem(1)["id"] == "starter"
+    assert game.get_problem(4)["id"] == "master"
+    print("  get_problem      OK")
+
+    # check_solution: keyword matching
+    p1 = game.get_problem(1)
+    assert game.check_solution("yes", p1)         # pass
+    assert not game.check_solution("no clue", p1)            # no keywords → fail
+    assert not game.check_solution(None, p1)                  # None → fail
+    p3 = game.get_problem(3)
+    assert game.check_solution("yep", p3)    # pass
+    assert not game.check_solution("no", p3)       # fail
+    print("  check_solution   OK")
+
+    # _wait_for_confirmation keyword matching
+    class _Fake:
+        def __init__(self, t): self._t = t
+        def listen(self): return self._t
+    assert _wait_for_confirmation(_Fake("yes"))
+    assert not _wait_for_confirmation(_Fake("nope"))
+    assert not _wait_for_confirmation(_Fake(None))
+    print("  confirmation     OK")
+
+    # _wait_for_level_select keyword matching
+    assert _wait_for_level_select(_Fake("green"))   == 1
+    assert _wait_for_level_select(_Fake("junior"))  == 2
+    assert _wait_for_level_select(_Fake("3"))       == 3
+    assert _wait_for_level_select(_Fake("master"))  == 4
+    assert _wait_for_level_select(_Fake("banana"))  == 0
+    print("  level select     OK")
+
+    print("All tests passed.")
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 #  Dry-run mode  (no real robot)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -325,6 +433,7 @@ class BridgeGame:
 class _FakeTTS:
     def speak(self, text, animated=True): _log(f"[TTS] {text}")
     def set_volume(self, v): pass
+    def set_speed(self, s): pass
 
 class _FakeSTT:
     def register_and_subscribe(self): pass
@@ -437,7 +546,7 @@ def run_scenario(
             "I didn't quite catch that. Let us play anyway!", animated=True
         )
 
-    # ── 4. Show image-card menu ───────────────────────────────────────────
+    # ── 4. Choose level ────────────────────────────────────────────────
     _led(leds, "happy")
     tts.speak(GAME_INTRO, animated=True)
 
@@ -451,30 +560,13 @@ def run_scenario(
         )
         level = 1
 
+    # ── 5. Play the game ────────────────────────────────────────────────
     game = BridgeGame()
     problem = game.get_problem(level)
-
-    # menu_url = _build_tablet_url(
-    #     dashboard_url,
-    #     "menu_demo.html",
-    #     "title=What+can+I+help+with%3F&subtitle=Tap+a+card+to+choose",
-    #     on_robot,
-    # )
-    # tablet.show_webview(menu_url)
-
-    # ── 5. Wait for choice and react ────────────────────────────────────
-        
     _led(leds, "happy")
     tts.speak(LEVEL_SHOWCASE, animated=True)
 
-    stt.register_and_subscribe()
-    confirmed = _wait_for_confirmation(stt, keywords= FINISHED_KEYWORDS)
-    stt.unsubscribe()
-
-    if not confirmed:
-        tts.speak(
-            "Are you finished, or do you need a hint?", animated=True
-        )
+    game_round(tts, stt, leds, problem)
 
 
 
@@ -544,6 +636,8 @@ def run_scenario(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Pepper menu demo scenario")
+    parser.add_argument("--test",     action="store_true",
+                        help="Run built-in logic tests and exit")
     parser.add_argument("--url",      default="tcp://172.18.48.50:9559",
                         help="Naoqi URL, e.g. tcp://ROBOT_IP:9559")
     parser.add_argument("--port",     type=int, default=8080,
@@ -551,6 +645,10 @@ def main() -> None:
     parser.add_argument("--dry-run",  action="store_true",
                         help="Run without a real robot (fake drivers)")
     args = parser.parse_args()
+
+    if args.test:
+        _run_tests()
+        return
 
     if args.dry_run:
         _log("=== DRY-RUN MODE (no robot) ===")

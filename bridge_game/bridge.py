@@ -566,7 +566,7 @@ def run_scenario(
     
     if session:
         memory = session.service("ALMemory")
-        # subtract 1 because Python levels are 1,2,3,4 but JS arrays are 0,1,2,3
+       # subtract 1 because Python levels are 1,2,3,4 but JS arrays are 0,1,2,3
         memory.raiseEvent("BridgeGame/LevelSelected", level - 1)
 
     # ── 5. Play the game ────────────────────────────────────────────────
@@ -734,6 +734,7 @@ def main() -> None:
             awareness=awareness,
             dashboard_url=dashboard_url,
             on_robot=on_robot,
+            session=session,
         )
     except KeyboardInterrupt:
         _log("Interrupted by user.")

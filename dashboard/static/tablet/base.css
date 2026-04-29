@@ -8,8 +8,8 @@
  *
  *   :root {
  *     --accent: #f59e0b;   /* change accent colour */
- *     --bg:     #1a1a2e;   /* change background     */
- *   }
+ *     /*--bg:     #1a1a2e;   /* change background     */
+ *   /*}
  */
 
 /* ── Reset & base ──────────────────────────────────────────────────────── */

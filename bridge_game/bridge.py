@@ -276,7 +276,48 @@ def _build_tablet_url(base_url: str, page: str, params: str, on_robot: bool = Fa
         url += f"?{params}"
     return url
 
+def present_problem(tts, stt, problem):
+    tts.speak(problem["description"], animated=True)
+    tts.speak("Say 'hint' if you need help, or 'done' when you are finished.")
 
+class BridgeGame:
+    PROBLEMS = [
+        {
+            "id": "starter",
+            "description": "Starter level: Build a simple bridge with 2 blocks.",
+            "hints": [
+                "Try placing one block on the left and one on the right, leaving a gap in the middle.",
+                "Make sure the blocks are close enough to each other to connect!",
+            ]
+        },
+        {
+            "id": "junior",
+            "description": "Junior level: Build a bridge with 3 blocks, but one block is missing!",
+            "hints": [
+                "You can use the two blocks to create a sloped bridge.",
+                "Try placing one block on the left and one on the right, then balance the third block on top to connect them!",
+            ]
+        },
+        {
+            "id": "expert",
+            "description": "Expert level: Build a bridge with 4 blocks, but two blocks are missing!",
+            "hints": [
+                "You can create a zig-zag pattern to connect the pieces.",
+                "Try placing two blocks on the left and two on the right, then balance the remaining blocks on top to connect them!",
+            ]
+        },
+        {
+            "id": "master",
+            "description": "Master level: Build a bridge with 5 blocks, but three blocks are missing!",
+            "hints": [
+                "This one is tricky! You will need to create a more complex structure to connect all the pieces.",
+                "Try placing three blocks on the left and two on the right, then balance the remaining blocks on top to connect them all together!",
+            ]
+        }
+    ]
+    def get_problem(self, level):
+        return self.PROBLEMS[level-1]
+    def check_solution(self, problem, answer):
 # ──────────────────────────────────────────────────────────────────────────────
 #  Dry-run mode  (no real robot)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -401,19 +442,17 @@ def run_scenario(
     tts.speak(GAME_INTRO, animated=True)
 
     stt.register_and_subscribe()
-    confirmed = _wait_for_level_select(stt)
+    level = _wait_for_level_select(stt)
     stt.unsubscribe()
 
-    levels = ["starter", "junior", "expert", "master"]
+    if level == 0:
+        tts.speak(
+            "I didn't quite catch that - Let's go with starter", animated=True
+        )
+        level = 1
 
-    if confirmed:
-        tts.speak(
-            "You chose " + levels[confirmed - 1] + " level. Let us begin. ", animated=True
-        )
-    else:
-        tts.speak(
-            "I didn't quite catch that. Don't worry, I'll pick for you. Let's go with master. ", animated=True
-        )
+    game = BridgeGame()
+    problem = game.get_problem(level)
 
     # menu_url = _build_tablet_url(
     #     dashboard_url,

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<!--
+  Pepper Tablet — Image-Card Menu  (menu_demo.html)
+  ===================================================
+  Shows a 2×2 grid of tappable image cards.  Each tap posts to
+  /api/tablet_input so the robot can react immediately.
+
+  URL parameters:
+    ?title=What+shall+I+do%3F    Page heading  (default: "What can I help with?")
+    ?subtitle=Pick+an+option     Subtitle line (default: "Tap a card to choose")
+    ?color=#58a6ff               Accent colour override
+
+  Payload sent on tap (POST /api/tablet_input):
+    { "action": "card_choice", "value": "<label>", "index": <0-3> }
+
+  Cards (fixed for the demo scenario):
+    0  Weather     – ask about the weather
+    1  Joke        – tell a joke
+    2  News        – read a headline
+    3  Dance       – perform a dance
+
+  To use in a script:
+    from HRI_lab_Pepper.dashboard.server import get_tablet_input
+    inp = get_tablet_input()
+    if inp and inp.get("action") == "card_choice":
+        topic = inp["value"]   # "Weather" | "Joke" | "News" | "Dance"
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Menu</title>
+  <link rel="stylesheet" href="base.css">
+  <style>
+    body { 
+        overflow-y: auto; 
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .page {
+      padding: 1.8rem 1.6rem 1.2rem;
+      gap: 1.2rem;
+      justify-content: flex-start;
+    }
+
+    /* ── Card grid ─────────────────────────────────────────────── */
+    .card-grid {
+      display: -webkit-flex;
+      display: flex;
+      -webkit-flex-wrap: wrap;
+      flex-wrap: wrap;
+      width: 100%;
+      -webkit-flex: 1;
+      flex: 1;
+    }
+
+    .img-card {
+        position: relative;
+        box-sizing: border-box;
+        width: calc(50% - 1.2rem); /* Keep 2 columns */
+        margin: 0.6rem;
+        height: 35vh; /* Reduced height to ensure all 4 fit on one screen */
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        cursor: pointer;
+        border: 2px solid var(--border);
+        transition: all .15s;
+    }
+
+    .img-card:hover,
+    .img-card:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(88,166,255,.25); }
+    .img-card:active { transform: scale(.96); }
+    .img-card.selected { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(88,166,255,.4); }
+
+    .img-card img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+      /* Slightly dim by default, brighten on hover */
+      filter: brightness(.75) saturate(.9);
+      transition: filter .2s;
+    }
+    .img-card:hover img,
+    .img-card:focus img { filter: brightness(.9) saturate(1.1); }
+
+    /* Label bar at the bottom of each card */
+    .card-label {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,.78));
+      padding: 1.8em .8em .7em;
+      text-align: center;
+    }
+    .card-label span {
+      font-size: clamp(1.1rem, 3.5vw, 1.8rem);
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 1px 6px rgba(0,0,0,.7);
+    }
+    .card-icon {
+      display: block;
+      font-size: clamp(1.5rem, 5vw, 2.6rem);
+      margin-bottom: .15em;
+    }
+
+    /* ── Full-screen feedback flash ────────────────────────────── */
+    .feedback {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 1rem;
+      background: rgba(0,0,0,.82);
+      backdrop-filter: blur(6px);
+      opacity: 0; pointer-events: none;
+      transition: opacity .25s;
+      z-index: 90;
+    }
+    .feedback.show { opacity: 1; pointer-events: all; }
+    .feedback-icon { font-size: clamp(3.5rem, 12vw, 7rem); }
+    .feedback-text {
+      font-size: clamp(1.4rem, 4vw, 2.4rem);
+      font-weight: 700;
+      color: var(--success);
+    }
+    /* Feedback Overlay Styling */
+    .picked-level {
+    width: 250px; /* Adjust size of the image in the selection screen */
+    height: 250px;
+    object-fit: cover;
+    border-radius: 15px;
+    border: 4px solid #FFA500;
+    margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1 class="title" id="title-el">Pick one level</h1>
+    <p  class="subtitle" id="subtitle-el">Tap a card or speak to choose</p>
+
+    <div class="card-grid" id="card-grid">
+      <!-- cards injected by JS -->
+    </div>
+  </div>
+
+  <div class="feedback" id="feedback">
+    <img src ="picked-level-img" class="picked-level">
+    <span class="feedback-icon" id="fb-icon">✅</span>
+    <p   class="feedback-text"  id="fb-text">Choice sent!</p>
+  </div>
+
+  <script>
+    // ── Card definitions ───────────────────────────────────────────────
+    // Images: Unsplash Source (free, no API key, reliable CDN)
+    const CARDS = [
+      {
+        label: "Starter",
+        icon:  "🟢",
+        alt:   "Sunny sky with clouds",
+      },
+      {
+        label: "Junior",
+        icon:  "🔵",
+        alt:   "Colourful balloons",
+      },
+      {
+        label: "Expert",
+        icon:  "🟠",
+        alt:   "Newspaper on a desk",
+      },
+      {
+        label: "Master",
+        icon:  "🔴",
+        alt:   "Person dancing on stage",
+      },
+    ];
+
+    // ── Apply URL params ────────────────────────────────────────────────
+    const p = new URLSearchParams(location.search);
+    if (p.get("title"))    document.getElementById("title-el").textContent    = p.get("title");
+    if (p.get("subtitle")) document.getElementById("subtitle-el").textContent = p.get("subtitle");
+    if (p.get("color"))    document.documentElement.style.setProperty("--accent", p.get("color"));
+
+    // ── Build card grid ─────────────────────────────────────────────────
+    const grid = document.getElementById("card-grid");
+
+    CARDS.forEach(({ label, icon, img, alt }, idx) => {
+      const card = document.createElement("div");
+      card.className = "img-card";
+      card.setAttribute("tabindex", "0");
+      card.setAttribute("role", "button");
+      card.setAttribute("aria-label", label);
+
+      const image = document.createElement("img");
+      image.src    = img;
+      image.alt    = alt;
+      image.loading = "lazy";
+      image.onerror = () => { image.style.display = "none"; };
+
+      const lbar  = document.createElement("div");
+      lbar.className = "card-label";
+      lbar.innerHTML = `<span class="card-icon">${icon}</span><span>${label}</span>`;
+
+      card.appendChild(image);
+      card.appendChild(lbar);
+      card.addEventListener("click",   () => handleChoice(card, label, idx));
+      card.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") handleChoice(card, label, idx); });
+      grid.appendChild(card);
+    });
+
+    // ── Handle tap ──────────────────────────────────────────────────────
+    let busy = false;
+
+    function handleChoice(card, value, index) {
+      if (busy) return;
+      busy = true;
+      card.classList.add("Your choice:");
+
+      const payload = { action: "card_choice", value, index };
+
+      // Primary: direct qi service call — routes via SSH tunnel to the laptop.
+      try {
+        var _qs = new QiSession();
+        _qs.service('TabletInput').then(function(m) {
+          m.notify(JSON.stringify(payload));
+        }).catch(function() {});
+      } catch(_e) {}
+
+      // Fallback: HTTP POST — works when page is served directly by the laptop dashboard
+      fetch("/api/tablet_input", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(payload),
+      }).catch(() => {});
+
+      const fb     = document.getElementById("feedback");
+      const fbIcon = document.getElementById("fb-icon");
+      const fbText = document.getElementById("fb-text");
+      const pickedLevel = document.getElementById("picked-level-img");
+
+      fbIcon.textContent = CARDS[index].icon;
+      fbText.textContent = `"${value}" selected!`;
+      fb.classList.add("show");
+      pickedImg.src = CARDS[index].img;
+
+      setTimeout(() => {
+        fb.classList.remove("show");
+        card.classList.remove("selected");
+        busy = false;
+      }, 3000);
+    }
+  </script>
+  <script src="/libs/qimessaging/2/qimessaging.js"></script>
+<script src="nav.js"></script>
+</html>

@@ -123,12 +123,12 @@
     }
     /* Feedback Overlay Styling */
     .picked-level {
-    width: 250px; /* Adjust size of the image in the selection screen */
-    height: 250px;
-    object-fit: cover;
-    border-radius: 15px;
-    border: 4px solid #FFA500;
-    margin-bottom: 1rem;
+        width: 400px;
+        height: 400px;
+        object-fit: cover;
+        border-radius: 15px;
+        border: 4px solid #FFA500;
+        margin-bottom: 1rem;
     }
   </style>
 </head>
@@ -143,7 +143,7 @@
   </div>
 
   <div class="feedback" id="feedback">
-    <img src ="picked-level-img" class="picked-level">
+    <img src="" id="picked-level-img" class="picked-level">
     <span class="feedback-icon" id="fb-icon">✅</span>
     <p   class="feedback-text"  id="fb-text">Choice sent!</p>
   </div>
@@ -155,21 +155,25 @@
       {
         label: "Starter",
         icon:  "🟢",
+        //img:   "img/Beginner.jpg",
         alt:   "Sunny sky with clouds",
       },
       {
         label: "Junior",
         icon:  "🔵",
+        //img:   "img/Medium.jpg",
         alt:   "Colourful balloons",
       },
       {
         label: "Expert",
         icon:  "🟠",
+        //img:   "img/Hard.jpg",
         alt:   "Newspaper on a desk",
       },
       {
         label: "Master",
         icon:  "🔴",
+        //img:   "img/Master.jpg",
         alt:   "Person dancing on stage",
       },
     ];
@@ -211,42 +215,44 @@
     let busy = false;
 
     function handleChoice(card, value, index) {
-      if (busy) return;
-      busy = true;
-      card.classList.add("Your choice:");
+        if (busy) return;
+        busy = true;
 
-      const payload = { action: "card_choice", value, index };
+        // Visual feedback on the card itself
+        card.classList.add("selected");
 
-      // Primary: direct qi service call — routes via SSH tunnel to the laptop.
-      try {
-        var _qs = new QiSession();
-        _qs.service('TabletInput').then(function(m) {
-          m.notify(JSON.stringify(payload));
-        }).catch(function() {});
-      } catch(_e) {}
+        // Prepare the feedback elements
+        const fb = document.getElementById("feedback");
+        const fbIcon = document.getElementById("fb-icon");
+        const fbText = document.getElementById("fb-text");
+        const fbImg = document.getElementById("picked-level-img"); // Ensure this ID exists!
 
-      // Fallback: HTTP POST — works when page is served directly by the laptop dashboard
-      fetch("/api/tablet_input", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(payload),
-      }).catch(() => {});
+        // Update the feedback content
+        if (fbIcon) fbIcon.textContent = CARDS[index].icon;
+        if (fbText) fbText.textContent = `Your choice: ${value}`;
+        
+        if (fbImg) {
+            fbImg.src = CARDS[index].img;
+            fbImg.style.display = "block"; // Make sure it's visible
+        }
 
-      const fb     = document.getElementById("feedback");
-      const fbIcon = document.getElementById("fb-icon");
-      const fbText = document.getElementById("fb-text");
-      const pickedLevel = document.getElementById("picked-level-img");
+        // Show the overlay
+        fb.classList.add("show");
 
-      fbIcon.textContent = CARDS[index].icon;
-      fbText.textContent = `"${value}" selected!`;
-      fb.classList.add("show");
-      pickedImg.src = CARDS[index].img;
+        // Send data to Pepper
+        const payload = { action: "card_choice", value, index };
+        try {
+            if (window.QiSession) {
+            new QiSession().service('TabletInput').then(m => m.notify(JSON.stringify(payload)));
+            }
+        } catch(e) { console.log("QiSession not available"); }
 
-      setTimeout(() => {
-        fb.classList.remove("show");
-        card.classList.remove("selected");
-        busy = false;
-      }, 3000);
+        // Reset after 3 seconds
+        setTimeout(() => {
+            fb.classList.remove("show");
+            card.classList.remove("selected");
+            busy = false;
+        }, 3000);
     }
   </script>
   <script src="/libs/qimessaging/2/qimessaging.js"></script>

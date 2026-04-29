@@ -51,7 +51,7 @@ except ImportError as e:
     print("[DEMO] Is the package installed? Run: pip install -e .")
     sys.exit(1)
 
-_TABLET_SRC_DIR = Path(__file__).resolve().parent.parent / "dashboard" / "static" / "tablet"
+_TABLET_SRC_DIR = Path(__file__).resolve().parent / "tablet"
 
 
 # ──────────────────────────────────────────────────────────────────────────────

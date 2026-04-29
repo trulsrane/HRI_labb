@@ -497,6 +497,7 @@ def run_scenario(
     posture: object,
     leds: object,
     awareness: object,
+    session: object,
     dashboard_url: str,
     on_robot: bool = False,
 ) -> None:
@@ -548,9 +549,10 @@ def run_scenario(
 
     # ── 4. Choose level ────────────────────────────────────────────────
     _led(leds, "happy")
-    tts.speak(GAME_INTRO, animated=True) #Hade kunnat göra denna till en class likt bridgeGame och lägga in tablet logiken
 
     tablet.show_webview(_build_tablet_url(dashboard_url, "levels.html", "", on_robot))
+    tts.speak(GAME_INTRO, animated=True)
+
 
     stt.register_and_subscribe()
     level = _wait_for_level_select(stt)
@@ -561,6 +563,11 @@ def run_scenario(
             "I didn't quite catch that - Let's go with starter", animated=True
         )
         level = 1
+    
+    if session:
+        memory = session.service("ALMemory")
+        # subtract 1 because Python levels are 1,2,3,4 but JS arrays are 0,1,2,3
+        memory.raiseEvent("BridgeGame/LevelSelected", level - 1)
 
     # ── 5. Play the game ────────────────────────────────────────────────
     game = BridgeGame()

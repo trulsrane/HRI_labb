@@ -254,6 +254,35 @@
             busy = false;
         }, 3000);
     }
+
+    // ── Listen for Voice Commands from bridge.py ───────────────────────────
+    try {
+      // Connect to Pepper's internal brain
+      QiSession(function(session) {
+        session.service("ALMemory").then(function(memory) {
+          
+          // Subscribe to the specific event we created in Python
+          memory.subscriber("BridgeGame/LevelSelected").then(function(subscriber) {
+            subscriber.signal.connect(function(levelIndex) {
+              
+              // When Python fires the event, find the matching card
+              const allCards = document.querySelectorAll(".img-card");
+              const selectedCard = allCards[levelIndex];
+              
+              if (selectedCard) {
+                const label = CARDS[levelIndex].label;
+                
+                // Trigger the exact same feedback function used for tapping!
+                handleChoice(selectedCard, label, levelIndex);
+              }
+              
+            });
+          });
+        });
+      });
+    } catch(e) {
+      console.log("Not running on robot; ALMemory listener disabled.");
+    }
   </script>
   <script src="/libs/qimessaging/2/qimessaging.js"></script>
 <script src="nav.js"></script>

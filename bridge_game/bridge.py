@@ -550,6 +550,8 @@ def run_scenario(
     _led(leds, "happy")
     tts.speak(GAME_INTRO, animated=True)
 
+    tablet.show_webview(_build_tablet_url(dashboard_url, "levels.html", "", on_robot))
+
     stt.register_and_subscribe()
     level = _wait_for_level_select(stt)
     stt.unsubscribe()
@@ -570,44 +572,44 @@ def run_scenario(
 
 
 
-    
-    # choice_event = _wait_for_menu_choice(timeout=60.0)
+#     ### MENU START ###
+#     choice_event = _wait_for_menu_choice(timeout=60.0)
 
-    # if not choice_event:
-    #     tts.speak(
-    #         "Hmm, it seems you haven't chosen anything. "
-    #         "That's okay, I'll be here when you're ready!",
-    #         animated=True,
-    #     )
-    #     tablet.hide()
-    #     _led(leds, "off")
-    #     return
+#     if not choice_event:
+#         tts.speak(
+#             "Hmm, it seems you haven't chosen anything. "
+#             "That's okay, I'll be here when you're ready!",
+#             animated=True,
+#         )
+#         tablet.hide()
+#         _led(leds, "off")
+#         return
 
-    # topic = choice_event.get("value", "")
-    # reaction = REACTIONS.get(topic)
+#     topic = choice_event.get("value", "")
+#     reaction = REACTIONS.get(topic)
 
-    # if not reaction:
-    #     tts.speak(f"Interesting choice: {topic}! I'm not sure how to respond to that one.", animated=True)
-    #     tablet.hide()
-    #     return
+#     if not reaction:
+#         tts.speak(f"Interesting choice: {topic}! I'm not sure how to respond to that one.", animated=True)
+#         tablet.hide()
+#         return
 
-    # _log(f"Reacting to: {topic}")
+#     _log(f"Reacting to: {topic}")
 
-    # # Show reaction on tablet first (non-blocking)
-    # tab_page, tab_params = reaction["tablet"]
-    # tablet.show_webview(_build_tablet_url(dashboard_url, tab_page, tab_params, on_robot))
+#     # Show reaction on tablet first (non-blocking)
+#     tab_page, tab_params = reaction["tablet"]
+#     tablet.show_webview(_build_tablet_url(dashboard_url, tab_page, tab_params, on_robot))
 
-    # # Set LEDs
-    # _led(leds, reaction["led"])
+#     # Set LEDs
+#     _led(leds, reaction["led"])
 
-    # # Play animation and speak simultaneously
-    # anim.run_async(reaction["animation"])
-    # tts.speak(reaction["speech"], animated=True)
+#     # Play animation and speak simultaneously
+#     anim.run_async(reaction["animation"])
+#     tts.speak(reaction["speech"], animated=True)
 
-    # time.sleep(1.5)
+#     time.sleep(1.5)
         
     
-
+#    ### MENU END ###
 
     # ── 6. Closing ────────────────────────────────────────────────────────
     anim.run_async("animations/Stand/Gestures/BodyTalk_5")

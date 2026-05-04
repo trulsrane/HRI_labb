@@ -93,14 +93,14 @@ ON_DENY = (
     "Alright, let me know if you change your mind."
 )
 
-STARTER_KEYWORDS = ("1", "one", "green","starter")
+STARTER_KEYWORDS = ("1", "one", "green","starter", "start")
 JUNIOR_KEYWORDS = ("2", "two", "yellow", "junior", "jr")
 EXPERT_KEYWORDS = ("3", "three", "red", "read", "expert")
 MASTER_KEYWORDS = ("4", "four", "purple", "master")
 
 
 LEVEL_SHOWCASE = (
-    "Look at my tablet to see how to set up the level."
+    "Look at my tablet to see how to set up."
 )
 
 
@@ -538,6 +538,7 @@ def run_scenario(
     problem = game.get_problem(level)
     _led(leds, "happy")
     tts.speak(LEVEL_SHOWCASE, animated=True)
+    
 
     game_round(tts, stt, leds, game, problem)
 

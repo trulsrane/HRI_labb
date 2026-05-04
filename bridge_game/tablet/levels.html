@@ -33,8 +33,8 @@
   <link rel="stylesheet" href="base.css">
   <style>
     body { 
-      overflow-x: hidden;
-    
+        overflow-y: auto; 
+        -webkit-overflow-scrolling: touch;
     }
 
     .page {
@@ -55,20 +55,16 @@
     }
 
     .img-card {
-      position: relative;
-      -webkit-box-sizing: border-box;
-      box-sizing: border-box;
-      /* Two-column layout with spacing: total = 2*(50% - 1.2rem + 2*0.6rem) = 100% */
-      width: calc(50% - 1.2rem);
-      margin: 0.6rem;
-      height: 42vw; /* approximate square on Pepper's 1280px-wide tablet */
-      border-radius: var(--radius-lg);
-      overflow: hidden;
-      cursor: pointer;
-      border: 2px solid var(--border);
-      transition: border-color .15s, transform .12s, box-shadow .15s;
-      background: var(--surface);
-      -webkit-tap-highlight-color: transparent;
+        position: relative;
+        box-sizing: border-box;
+        width: calc(50% - 1.2rem); /* Keep 2 columns */
+        margin: 0.6rem;
+        height: 35vh; /* Reduced height to ensure all 4 fit on one screen */
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        cursor: pointer;
+        border: 2px solid var(--border);
+        transition: all .15s;
     }
 
     .img-card:hover,
@@ -125,12 +121,21 @@
       font-weight: 700;
       color: var(--success);
     }
+    /* Feedback Overlay Styling */
+    .picked-level {
+        width: 400px;
+        height: 400px;
+        object-fit: cover;
+        border-radius: 15px;
+        border: 4px solid #FFA500;
+        margin-bottom: 1rem;
+    }
   </style>
 </head>
 <body>
   <div class="page">
-    <h1 class="title" id="title-el">What can I help with?</h1>
-    <p  class="subtitle" id="subtitle-el">Tap a card to choose</p>
+    <h1 class="title" id="title-el">Pick one level</h1>
+    <p  class="subtitle" id="subtitle-el">Tap a card or speak to choose</p>
 
     <div class="card-grid" id="card-grid">
       <!-- cards injected by JS -->
@@ -138,47 +143,23 @@
   </div>
 
   <div class="feedback" id="feedback">
+    <img src="" id="picked-level-img" class="picked-level">
     <span class="feedback-icon" id="fb-icon">✅</span>
     <p   class="feedback-text"  id="fb-text">Choice sent!</p>
   </div>
 
   <script>
-    // ── Card definitions ───────────────────────────────────────────────
-    // Images: Unsplash Source (free, no API key, reliable CDN)
     const CARDS = [
-      {
-        label: "Weather",
-        icon:  "🌤️",
-        img:   "https://images.unsplash.com/photo-1504608524841-42584120d693?w=600&q=70",
-        alt:   "Sunny sky with clouds",
-      },
-      {
-        label: "Joke",
-        icon:  "😄",
-        img:   "https://images.unsplash.com/photo-1527224857830-43a7acc85260?w=600&q=70",
-        alt:   "Colourful balloons",
-      },
-      {
-        label: "News",
-        icon:  "📰",
-        img:   "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=600&q=70",
-        alt:   "Newspaper on a desk",
-      },
-      {
-        label: "Dance",
-        icon:  "🕺",
-        img:   "https://images.unsplash.com/photo-1545224144-b38cd309ef69?w=600&q=70",
-        alt:   "Person dancing on stage",
-      },
+      { label: "Starter", icon: "🟢", img: "img/Beginner.jpg", alt: "Sunny sky with clouds" },
+      { label: "Junior",  icon: "🔵", img: "img/Medium.jpg",   alt: "Colourful balloons" },
+      { label: "Expert",  icon: "🟠", img: "img/Hard.jpg",     alt: "Newspaper on a desk" },
+      { label: "Master",  icon: "🔴", img: "img/Master.jpg",   alt: "Person dancing on stage" },
     ];
 
-    // ── Apply URL params ────────────────────────────────────────────────
     const p = new URLSearchParams(location.search);
     if (p.get("title"))    document.getElementById("title-el").textContent    = p.get("title");
     if (p.get("subtitle")) document.getElementById("subtitle-el").textContent = p.get("subtitle");
-    if (p.get("color"))    document.documentElement.style.setProperty("--accent", p.get("color"));
 
-    // ── Build card grid ─────────────────────────────────────────────────
     const grid = document.getElementById("card-grid");
 
     CARDS.forEach(({ label, icon, img, alt }, idx) => {
@@ -186,63 +167,83 @@
       card.className = "img-card";
       card.setAttribute("tabindex", "0");
       card.setAttribute("role", "button");
-      card.setAttribute("aria-label", label);
 
       const image = document.createElement("img");
-      image.src    = img;
-      image.alt    = alt;
-      image.loading = "lazy";
+      image.src = img;
+      image.alt = alt;
+      
       image.onerror = () => { image.style.display = "none"; };
 
-      const lbar  = document.createElement("div");
+      const lbar = document.createElement("div");
       lbar.className = "card-label";
       lbar.innerHTML = `<span class="card-icon">${icon}</span><span>${label}</span>`;
 
       card.appendChild(image);
       card.appendChild(lbar);
-      card.addEventListener("click",   () => handleChoice(card, label, idx));
-      card.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") handleChoice(card, label, idx); });
+      card.addEventListener("click", () => handleChoice(card, label, idx));
       grid.appendChild(card);
     });
 
-    // ── Handle tap ──────────────────────────────────────────────────────
+    // QiSession connection
     let busy = false;
+    let tabletInputService = null;
 
-    function handleChoice(card, value, index) {
-      if (busy) return;
-      busy = true;
-      card.classList.add("selected");
+    function handleChoice(card, value, index, fromVoice = false) {
+        if (busy) return;
+        busy = true; 
 
-      const payload = { action: "card_choice", value, index };
+        card.classList.add("selected");
 
-      // Primary: direct qi service call — routes via SSH tunnel to the laptop.
-      try {
-        var _qs = new QiSession();
-        _qs.service('TabletInput').then(function(m) {
-          m.notify(JSON.stringify(payload));
-        }).catch(function() {});
-      } catch(_e) {}
+        const fb = document.getElementById("feedback");
+        const fbIcon = document.getElementById("fb-icon");
+        const fbText = document.getElementById("fb-text");
+        const fbImg = document.getElementById("picked-level-img");
 
-      // Fallback: HTTP POST — works when page is served directly by the laptop dashboard
-      fetch("/api/tablet_input", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(payload),
-      }).catch(() => {});
+        if (fbIcon) fbIcon.textContent = CARDS[index].icon;
+        if (fbText) fbText.textContent = `Your choice: ${value}`;
+        
+        if (fbImg) {
+            fbImg.src = CARDS[index].img;
+            fbImg.style.display = "block";
+        }
 
-      const fb     = document.getElementById("feedback");
-      const fbIcon = document.getElementById("fb-icon");
-      const fbText = document.getElementById("fb-text");
+        fb.classList.add("show");
 
-      fbIcon.textContent = CARDS[index].icon;
-      fbText.textContent = `"${value}" selected!`;
-      fb.classList.add("show");
+        // If the user tapped the screen, notify Python.
+        // If triggered by voice, skip to avoid infitie loop
+        if (!fromVoice && tabletInputService) {
+            const payload = { action: "card_choice", value, index };
+            tabletInputService.notify(JSON.stringify(payload));
+        }
+    }
 
-      setTimeout(() => {
-        fb.classList.remove("show");
-        card.classList.remove("selected");
-        busy = false;
-      }, 1800);
+    try {
+      QiSession(function(session) {
+        console.log("Connected to robot");
+        
+        // Setup the sender for touchscreen
+        session.service("TabletInput").then(function(ti) {
+            tabletInputService = ti;
+        });
+
+        // Setup the listener for voice commands from bridge.py
+        session.service("ALMemory").then(function(memory) {
+          memory.subscriber("BridgeGame/LevelSelected").then(function(subscriber) {
+            subscriber.signal.connect(function(levelIndex) {
+              const allCards = document.querySelectorAll(".img-card");
+              const selectedCard = allCards[levelIndex];
+              
+              if (selectedCard) {
+                const label = CARDS[levelIndex].label;
+                // Pass "true" to indicate triggered by voice
+                handleChoice(selectedCard, label, levelIndex, true);
+              }
+            });
+          });
+        });
+      });
+    } catch(e) {
+      console.log("Not running on robot; QiSession unavailable.");
     }
   </script>
   <script src="/libs/qimessaging/2/qimessaging.js"></script>

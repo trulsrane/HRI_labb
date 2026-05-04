@@ -538,7 +538,7 @@ def run_scenario(
     problem = game.get_problem(level)
     _led(leds, "happy")
     tts.speak(LEVEL_SHOWCASE, animated=True)
-    
+
 
     game_round(tts, stt, leds, game, problem)
 
@@ -584,7 +584,7 @@ def run_scenario(
 #    ### MENU END ###
 
     # ── 6. Closing ────────────────────────────────────────────────────────
-    anim.run_async("animations/Stand/Gestures/BodyTalk_5")
+    anim.run_async("animations/Stand/Gestures/Hey_1")
     tts.speak(
         "Hooray, we did it!",
         animated=True,

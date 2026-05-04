@@ -101,36 +101,6 @@
         font-weight: 700;
         color: #fff;
       }
-
-      /* Feedback Overlay */
-      .feedback {
-        position: fixed;
-        inset: 0;
-        display: -webkit-flex;
-        display: flex;
-        -webkit-align-items: center;
-        align-items: center;
-        -webkit-justify-content: center;
-        justify-content: center;
-        flex-direction: column;
-        background: rgba(0, 0, 0, 0.9);
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.4s;
-        z-index: 100;
-      }
-      .feedback.show {
-        opacity: 1;
-        pointer-events: all;
-      }
-
-      .picked-level {
-        width: 60%;
-        max-height: 60%;
-        border-radius: 15px;
-        border: 5px solid #ffa500;
-        margin-bottom: 1rem;
-      }
     </style>
   </head>
   <body>
@@ -151,10 +121,22 @@
     <script src="/libs/qimessaging/2/qimessaging.js"></script>
     <script>
       const CARDS = [
-        { label: "Starter", img: "https://people.cs.umu.se/~id23sem/bridgegame_img/Beginner.jpg" },
-        { label: "Junior", img: "https://people.cs.umu.se/~id23sem/bridgegame_img/Medium.jpg" },
-        { label: "Expert", img: "https://people.cs.umu.se/~id23sem/bridgegame_img/Hard.jpg" },
-        { label: "Master", img: "https://people.cs.umu.se/~id23sem/bridgegame_img/Master.jpg" },
+        {
+          label: "Starter",
+          img: "https://people.cs.umu.se/~id23sem/bridgegame_img/Beginner.jpg",
+        },
+        {
+          label: "Junior",
+          img: "https://people.cs.umu.se/~id23sem/bridgegame_img/Medium.jpg",
+        },
+        {
+          label: "Expert",
+          img: "https://people.cs.umu.se/~id23sem/bridgegame_img/Hard.jpg",
+        },
+        {
+          label: "Master",
+          img: "https://people.cs.umu.se/~id23sem/bridgegame_img/Master.jpg",
+        },
       ];
 
       const grid = document.getElementById("card-grid");
@@ -174,20 +156,13 @@
 
       function handleChoice(index, fromVoice) {
         const item = CARDS[index];
-        const fb = document.getElementById("feedback");
-        const fbImg = document.getElementById("picked-level-img");
-        const fbText = document.getElementById("fb-text");
 
-        // Highlight the card
-        document
-          .querySelectorAll(".img-card")
-          .forEach((c) => c.classList.remove("selected"));
-        document.querySelectorAll(".img-card")[index].classList.add("selected");
-
-        // Update Feedback
-        fbImg.src = item.img;
-        fbText.textContent = "Level: " + item.label;
-        fb.classList.add("show");
+        // Construct the URL with parameters so the next page knows what to show
+        const targetUrl =
+          "pickedLevel.html?label=" +
+          encodeURIComponent(item.label) +
+          "&img=" +
+          encodeURIComponent(item.img);
 
         // Notify Python if it was a touch
         if (!fromVoice && tabletInputService) {
@@ -199,6 +174,9 @@
             }),
           );
         }
+
+        // Navigate to the new page
+        window.location.href = targetUrl;
       }
 
       // Connect to Pepper

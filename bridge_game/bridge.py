@@ -511,28 +511,38 @@ def run_scenario(
     tablet.show_webview(_build_tablet_url(dashboard_url, "levels.html", "", on_robot))
     tts.speak(GAME_INTRO_ALT, animated=True)
 
-
     stt.register_and_subscribe()
     level = _wait_for_level_select(stt)
     stt.unsubscribe()
 
-    if level == 0:
+    if level <= 0:
         tts.speak(
             "I didn't quite catch that - Let's go with starter", animated=True
         )
         level = 1
-
-    if level == -1:
-        tts.speak(
-            "Error, no input. Proceeding with starter.", animated=True
-        )
-        level = 1
     
+    # Switch to pickedLevel.html
+    level_names = ["Starter", "Junior", "Expert", "Master"]
+    level_imgs = [
+        "https://people.cs.umu.se/~id23sem/bridgegame_img/Beginner.jpg",
+        "https://people.cs.umu.se/~id23sem/bridgegame_img/Medium.jpg",
+        "https://people.cs.umu.se/~id23sem/bridgegame_img/Hard.jpg",
+        "https://people.cs.umu.se/~id23sem/bridgegame_img/Master.jpg"
+    ]
+    
+    selected_name = level_names[level-1]
+    selected_img = level_imgs[level-1]
+
+    # Build the parameters for picked level page
+    params = "label={}&img={}".format(selected_name, selected_img)
+    tablet.show_webview(_build_tablet_url(dashboard_url, "pickedLevel.html", params, on_robot))
+
     if session:
         memory = session.service("ALMemory")
        # subtract 1 because Python levels are 1,2,3,4 but JS arrays are 0,1,2,3
         memory.raiseEvent("BridgeGame/LevelSelected", level - 1)
 
+    
     # ── 5. Play the game ────────────────────────────────────────────────
     game = BridgeGame()
     problem = game.get_problem(level)

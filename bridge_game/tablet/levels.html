@@ -149,42 +149,17 @@
   </div>
 
   <script>
-    // ── Card definitions ───────────────────────────────────────────────
-    // Images: Unsplash Source (free, no API key, reliable CDN)
     const CARDS = [
-      {
-        label: "Starter",
-        icon:  "🟢",
-        img:   "img/Beginner.jpg",
-        alt:   "Sunny sky with clouds",
-      },
-      {
-        label: "Junior",
-        icon:  "🔵",
-        img:   "img/Medium.jpg",
-        alt:   "Colourful balloons",
-      },
-      {
-        label: "Expert",
-        icon:  "🟠",
-        img:   "img/Hard.jpg",
-        alt:   "Newspaper on a desk",
-      },
-      {
-        label: "Master",
-        icon:  "🔴",
-        img:   "img/Master.jpg",
-        alt:   "Person dancing on stage",
-      },
+      { label: "Starter", icon: "🟢", img: "img/Beginner.jpg", alt: "Sunny sky with clouds" },
+      { label: "Junior",  icon: "🔵", img: "img/Medium.jpg",   alt: "Colourful balloons" },
+      { label: "Expert",  icon: "🟠", img: "img/Hard.jpg",     alt: "Newspaper on a desk" },
+      { label: "Master",  icon: "🔴", img: "img/Master.jpg",   alt: "Person dancing on stage" },
     ];
 
-    // ── Apply URL params ────────────────────────────────────────────────
     const p = new URLSearchParams(location.search);
     if (p.get("title"))    document.getElementById("title-el").textContent    = p.get("title");
     if (p.get("subtitle")) document.getElementById("subtitle-el").textContent = p.get("subtitle");
-    if (p.get("color"))    document.documentElement.style.setProperty("--accent", p.get("color"));
 
-    // ── Build card grid ─────────────────────────────────────────────────
     const grid = document.getElementById("card-grid");
 
     CARDS.forEach(({ label, icon, img, alt }, idx) => {
@@ -192,96 +167,83 @@
       card.className = "img-card";
       card.setAttribute("tabindex", "0");
       card.setAttribute("role", "button");
-      card.setAttribute("aria-label", label);
 
       const image = document.createElement("img");
-      image.src    = img;
-      image.alt    = alt;
-      image.loading = "lazy";
+      image.src = img;
+      image.alt = alt;
+      
       image.onerror = () => { image.style.display = "none"; };
 
-      const lbar  = document.createElement("div");
+      const lbar = document.createElement("div");
       lbar.className = "card-label";
       lbar.innerHTML = `<span class="card-icon">${icon}</span><span>${label}</span>`;
 
       card.appendChild(image);
       card.appendChild(lbar);
-      card.addEventListener("click",   () => handleChoice(card, label, idx));
-      card.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") handleChoice(card, label, idx); });
+      card.addEventListener("click", () => handleChoice(card, label, idx));
       grid.appendChild(card);
     });
 
-    // ── Handle tap ──────────────────────────────────────────────────────
+    // QiSession connection
     let busy = false;
+    let tabletInputService = null;
 
-    function handleChoice(card, value, index) {
+    function handleChoice(card, value, index, fromVoice = false) {
         if (busy) return;
-        busy = true;
+        busy = true; 
 
-        // Visual feedback on the card itself
         card.classList.add("selected");
 
-        // Prepare the feedback elements
         const fb = document.getElementById("feedback");
         const fbIcon = document.getElementById("fb-icon");
         const fbText = document.getElementById("fb-text");
-        const fbImg = document.getElementById("picked-level-img"); // Ensure this ID exists!
+        const fbImg = document.getElementById("picked-level-img");
 
-        // Update the feedback content
         if (fbIcon) fbIcon.textContent = CARDS[index].icon;
         if (fbText) fbText.textContent = `Your choice: ${value}`;
         
         if (fbImg) {
             fbImg.src = CARDS[index].img;
-            fbImg.style.display = "block"; // Make sure it's visible
+            fbImg.style.display = "block";
         }
 
-        // Show the overlay
         fb.classList.add("show");
 
-        // Send data to Pepper
-        const payload = { action: "card_choice", value, index };
-        try {
-            if (window.QiSession) {
-            new QiSession().service('TabletInput').then(m => m.notify(JSON.stringify(payload)));
-            }
-        } catch(e) { console.log("QiSession not available"); }
-
-        // Reset after 3 seconds
-        setTimeout(() => {
-            fb.classList.remove("show");
-            card.classList.remove("selected");
-            busy = false;
-        }, 3000);
+        // If the user tapped the screen, notify Python.
+        // If triggered by voice, skip to avoid infitie loop
+        if (!fromVoice && tabletInputService) {
+            const payload = { action: "card_choice", value, index };
+            tabletInputService.notify(JSON.stringify(payload));
+        }
     }
 
-    // ── Listen for Voice Commands from bridge.py ───────────────────────────
     try {
-      // Connect to Pepper's internal brain
       QiSession(function(session) {
+        console.log("Connected to robot");
+        
+        // Setup the sender for touchscreen
+        session.service("TabletInput").then(function(ti) {
+            tabletInputService = ti;
+        });
+
+        // Setup the listener for voice commands from bridge.py
         session.service("ALMemory").then(function(memory) {
-          
-          // Subscribe to the specific event we created in Python
           memory.subscriber("BridgeGame/LevelSelected").then(function(subscriber) {
             subscriber.signal.connect(function(levelIndex) {
-              
-              // When Python fires the event, find the matching card
               const allCards = document.querySelectorAll(".img-card");
               const selectedCard = allCards[levelIndex];
               
               if (selectedCard) {
                 const label = CARDS[levelIndex].label;
-                
-                // Trigger the exact same feedback function used for tapping!
-                handleChoice(selectedCard, label, levelIndex);
+                // Pass "true" to indicate triggered by voice
+                handleChoice(selectedCard, label, levelIndex, true);
               }
-              
             });
           });
         });
       });
     } catch(e) {
-      console.log("Not running on robot; ALMemory listener disabled.");
+      console.log("Not running on robot; QiSession unavailable.");
     }
   </script>
   <script src="/libs/qimessaging/2/qimessaging.js"></script>

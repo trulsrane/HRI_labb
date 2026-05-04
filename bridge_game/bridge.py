@@ -51,7 +51,7 @@ except ImportError as e:
     print("[DEMO] Is the package installed? Run: pip install -e .")
     sys.exit(1)
 
-_TABLET_SRC_DIR = Path(__file__).resolve().parent / "tablet"
+_TABLET_SRC_DIR = Path(__file__).resolve().parent.parent / "dashboard" / "static" / "tablet"
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -94,58 +94,14 @@ ON_DENY = (
 )
 
 STARTER_KEYWORDS = ("1", "one", "green","starter")
-JUNIOR_KEYWORDS = ("2", "two", "yellow", "junior")
-EXPERT_KEYWORDS = ("3", "three", "red", "expert")
+JUNIOR_KEYWORDS = ("2", "two", "yellow", "junior", "jr")
+EXPERT_KEYWORDS = ("3", "three", "red", "read", "expert")
 MASTER_KEYWORDS = ("4", "four", "purple", "master")
 
 
 LEVEL_SHOWCASE = (
-    "Look at my tablet to see how to set up the level. Let me know when you are done by saying 'done'."
+    "Look at my tablet to see how to set up the level."
 )
-
-REACTIONS = {
-    "Weather": {
-        "speech": (
-            "Great choice! Here is today's weather forecast: "
-            "It's a lovely sunny day with temperatures around 20 degrees. "
-            "Perfect for a walk outside!"
-        ),
-        "animation": "animations/Stand/Gestures/ShowSky_2",
-        "tablet": ("info.html", "title=Weather+Forecast&result=Sunny+20°C — perfect+for+a+walk!"),
-        "led": "happy",
-    },
-    "Joke": {
-        "speech": (
-            "Oh, you want a joke! Here you go. "
-            "Why don't scientists trust atoms? "
-            "Because they make up everything! "
-            "Ha! I hope that made you smile!"
-        ),
-        "animation": "animations/Stand/Emotions/Positive/Hysterical_1",
-        "tablet": ("info.html", "title=Joke+Time!&result=Why+don't+scientists+trust+atoms?+%0ABecause+they+make+up+everything!"),
-        "led": "happy",
-    },
-    "News": {
-        "speech": (
-            "Here is today's top headline. "
-            "Researchers develop new robot that can understand human emotions. "
-            "Experts say this could revolutionise human-robot interaction. "
-            "Sounds like the future is bright for robots like me!"
-        ),
-        "animation": "animations/Stand/Gestures/Explain_3",
-        "tablet": ("info.html", "title=Top+Headline&result=Researchers+develop+robot+that+understands+human+emotions."),
-        "led": "thinking",
-    },
-    "Dance": {
-        "speech": (
-            "Dance? Oh I love this one! "
-            "Watch my moves!"
-        ),
-        "animation": "animations/Stand/BodyTalk/BodyTalk_5",
-        "tablet": ("info.html", "title=Dance+Time!&result=Watch+Pepper+dance! 🕺"),
-        "led": "happy",
-    },
-}
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -217,12 +173,13 @@ def _wait_for_level_select(
     """
     Listen for keywords associated with a specific level.
     Returns the level number of the matched keyword, and 0 if keyword doesnt match.
+    returns -1 if no speech is heard in time.
     """
     _log(f"Listening for confirmation (keywords: {keywords_1, keywords_2, keywords_3, keywords_4}) …")
     transcript = stt.listen()
     if not transcript:
         _log("No speech heard.")
-        return 0
+        return -1
     _log(f"Heard: '{transcript}'")
 
 
@@ -340,6 +297,7 @@ def celebrate(tts, leds):
 
 
 class BridgeGame:
+    #TODO move this to a json? perhaps
     PROBLEMS = [
         {
             "id": "starter",
@@ -511,7 +469,7 @@ def run_scenario(
     time.sleep(1.0)
 
     # setup the speech volume and speed
-    tts.set_volume(75)
+    tts.set_volume(50)
     tts.set_speed(100)
 
     # ── 1. Wait for a person ────────────────────────────────────────────
@@ -551,7 +509,7 @@ def run_scenario(
     _led(leds, "happy")
 
     tablet.show_webview(_build_tablet_url(dashboard_url, "levels.html", "", on_robot))
-    tts.speak(GAME_INTRO, animated=True)
+    tts.speak(GAME_INTRO_ALT, animated=True)
 
 
     stt.register_and_subscribe()
@@ -561,6 +519,12 @@ def run_scenario(
     if level == 0:
         tts.speak(
             "I didn't quite catch that - Let's go with starter", animated=True
+        )
+        level = 1
+
+    if level == -1:
+        tts.speak(
+            "Error, no input. Proceeding with starter.", animated=True
         )
         level = 1
     

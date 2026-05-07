@@ -237,8 +237,8 @@ def present_problem(tts, stt, problem):
     tts.speak(problem["description"], animated=True)
     tts.speak("Say 'hint' if you need help, or 'done' when you are finished.")
 
-def check_solution(tts, stt, game, problem):
-    tts.speak("Tell me about your solution.")
+def compare_solution(tts, stt, game, problem):
+    tts.speak("Here on my tablet is the solution, did you get it right?", animated=True)
     stt.register_and_subscribe()
     answer = stt.listen()
     stt.unsubscribe()
@@ -250,8 +250,19 @@ def check_solution(tts, stt, game, problem):
     if game.check_solution(answer, problem):
         return True
 
-    tts.speak("Not quite — keep going.")
     return False
+
+def check_solution(tts, stt, game, problem):
+    tts.speak("Are you finished? Do you want to see if you got it right?", animated=True)
+    stt.register_and_subscribe()
+    answer = stt.listen()
+    stt.unsubscribe()
+
+    if not answer:
+        tts.speak("I didn't hear that.")
+        return -1
+
+    return game.compare_solution(answer, problem)
 
 def game_round(tts, stt, leds, game, problem):
     """One full round of the bridge game. Returns True if solved."""
@@ -276,10 +287,16 @@ def game_round(tts, stt, leds, game, problem):
             hint_index += 1
 
         elif any(kw in text for kw in FINISHED_KEYWORDS):
-            if check_solution(tts, stt, game, problem):
+            if check_solution(tts, stt, game, problem) == -1:
+                continue
+            elif check_solution(tts, stt, game, problem):
                 celebrate(tts, leds)
                 return True
-            # wrong answer — fall through, the while loop continues
+            # wrong answer — defeat
+            else:
+                defeat(tts, leds)
+                return True # still return True to move on to next problem
+            
 
         else:
             tts.speak("Say 'hint' for help, or 'done' when ready.")
@@ -294,6 +311,10 @@ def give_hint(tts, problem, index):
 def celebrate(tts, leds):
     leds.happy()
     tts.speak("Congratulations! You solved the problem!", animated=True)
+
+def defeat(tts, leds):
+    leds.sad()
+    tts.speak("Oh no, that's unfortunate! Better luck next time.", animated=True)
 
 
 class BridgeGame:

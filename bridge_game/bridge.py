@@ -233,8 +233,12 @@ def _build_tablet_url(base_url: str, page: str, params: str, on_robot: bool = Fa
         url += f"?{params}"
     return url
 
-def present_problem(tts, stt, problem):
+def present_problem(tts, stt, problem, dashboard_url: str, 
+    tablet: object, on_robot: bool = False):
+    
+    
     tts.speak(problem["description"], animated=True)
+    tablet.show_webview(_build_tablet_url(dashboard_url, "solution.html", on_robot))
     tts.speak("Say 'hint' if you need help, or 'done' when you are finished.")
 
 def compare_solution(tts, stt, game, problem):
@@ -262,11 +266,16 @@ def check_solution(tts, stt, game, problem):
         tts.speak("I didn't hear that.")
         return -1
 
-    return game.compare_solution(answer, problem)
+    if _wait_for_confirmation:
+        return compare_solution(tts, stt, game, problem)
+    else:
+        tts.speak("Okay.")
+        return -1
 
-def game_round(tts, stt, leds, game, problem):
+def game_round(tts, stt, leds, game, problem, dashboard_url: str, 
+    tablet: object, anim):
     """One full round of the bridge game. Returns True if solved."""
-    present_problem(tts, stt, problem)
+    present_problem(tts, stt, problem, dashboard_url=dashboard_url, tablet=tablet)
     hint_index = 0
 
     while True:
@@ -290,7 +299,7 @@ def game_round(tts, stt, leds, game, problem):
             if check_solution(tts, stt, game, problem) == -1:
                 continue
             elif check_solution(tts, stt, game, problem):
-                celebrate(tts, leds)
+                celebrate(tts, leds, anim)
                 return True
             # wrong answer — defeat
             else:
@@ -308,9 +317,15 @@ def give_hint(tts, problem, index):
     else:
         tts.speak("That's all the hints I have!")
 
-def celebrate(tts, leds):
+def celebrate(tts, leds, anim):
     leds.happy()
     tts.speak("Congratulations! You solved the problem!", animated=True)
+    anim.run_async("animations/Stand/Gestures/Hey_1")
+    tts.speak(
+        "Hooray, we did it!",
+        animated=True,
+    )
+    time.sleep(2.0)    
 
 def defeat(tts, leds):
     leds.sad()
@@ -530,7 +545,7 @@ def run_scenario(
     _led(leds, "happy")
 
     tablet.show_webview(_build_tablet_url(dashboard_url, "levels.html", "", on_robot))
-    tts.speak(GAME_INTRO_ALT, animated=True)
+    tts.speak(GAME_INTRO, animated=True)
 
     stt.register_and_subscribe()
     level = _wait_for_level_select(stt)
@@ -571,8 +586,8 @@ def run_scenario(
     tts.speak(LEVEL_SHOWCASE, animated=True)
 
 
-    game_round(tts, stt, leds, game, problem)
-
+    game_round(tts, stt, leds, game, problem, dashboard_url=dashboard_url, tablet=tablet, anim=anim)
+    
 
 
 #     ### MENU START ###
@@ -615,12 +630,7 @@ def run_scenario(
 #    ### MENU END ###
 
     # ── 6. Closing ────────────────────────────────────────────────────────
-    anim.run_async("animations/Stand/Gestures/Hey_1")
-    tts.speak(
-        "Hooray, we did it!",
-        animated=True,
-    )
-    time.sleep(2.0)    
+    
 
     tts.speak(
         "Thank you for playing. Come back anytime.",

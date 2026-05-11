@@ -1,18 +1,15 @@
 #!/usr/bin/env python
 # =============================================================================
-#  HRI_lab_Pepper — Menu Demo Scenario
+#  HRI_lab_Pepper — Bridge Scenario
 # =============================================================================
 """
 Multi-modal demo that chains:
   1. Person detection — Pepper waits until someone stands in front of it.
   2. Greeting        — Pepper greets the person with speech + animation.
   3. Information     — Pepper asks for confirmation ("ready?") and checks STT.
-  4. Tablet menu     — Pepper shows a 4-option image-card menu on the tablet.
-  5. Reaction        — Pepper reacts differently to each card selection:
-       • Weather → speaks a weather forecast and shows info page
-       • Joke    → tells a joke with an enthusiastic animation
-       • News    → reads a mock headline
-       • Dance   → runs a dance animation
+  4. Level selection   — Pepper asks which level to play, checks STT for keywords.
+  5. Gameplay         — Pepper describes the problem and gives hints based on STT keywords.
+  6. Closing          — Pepper thanks the user and says goodbye.
 
 Usage
 -----
@@ -20,10 +17,10 @@ Usage
     python -m HRI_lab_Pepper.dashboard --url tcp://ROBOT_IP:9559
 
     # Then run this script:
-    python demos/menu_demo.py --url tcp://ROBOT_IP:9559 [--port 8080]
+    python bridge_game/bridge.py --url tcp://ROBOT_IP:9559 [--port 8080]
 
-    # Or run without a live robot (dry-run mode):
-    python demos/menu_demo.py --dry-run
+    # Or run without a live robot (dry-run mode):s
+    python bridge_game/bridge.py --dry-run
 """
 
 import argparse
@@ -58,15 +55,12 @@ _TABLET_SRC_DIR = Path(__file__).resolve().parent.parent / "dashboard" / "static
 #  Scenario content
 # ──────────────────────────────────────────────────────────────────────────────
 
-GREETINGS = [
-    #"Hi there! I'm Pepper, your personal assistant robot. So glad to see you!",
-    #"Hello! I spotted you — I'm Pepper. Let me help you today!",
-    #"Great, a visitor! I am Pepper. Welcome!",
+GREETINGS = (
     "Oh boy, I sure love playing with these blocks!"
-]
+)
 
 READY_QUESTION = (
-    "Do you want to play this with me jesper senpai?"
+    "Do you want to play this bridge game with me?"
     "Say yes if so!"
 )
 
@@ -83,12 +77,6 @@ GAME_INTRO = (
     "Starter, junior, expert, or master. Say which one you want! 1, 2, 3, 4, or the color works too!"
 )
 
-GAME_INTRO_ALT = (
-    "Perfect! This game is about making a bridge to connect the princess and the knight. "
-    "Unfortunately, my arms are only for waving, so you would have to move the blocks. "
-    "Are you ready? "
-)
-
 ON_DENY = (
     "Alright, let me know if you change your mind."
 )
@@ -98,11 +86,9 @@ JUNIOR_KEYWORDS = ("2", "two", "yellow", "junior", "jr")
 EXPERT_KEYWORDS = ("3", "three", "red", "read", "expert")
 MASTER_KEYWORDS = ("4", "four", "purple", "master")
 
-
 LEVEL_SHOWCASE = (
     "Look at my tablet to see how to set up."
 )
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 #  Helpers
@@ -518,11 +504,10 @@ def run_scenario(
     _led(leds, "happy")
 
     # ── 2. Greet ────────────────────────────────────────────────────────
-    import random
-    greeting = random.choice(GREETINGS)
-    _log(f"Greeting: {greeting}")
+    
+    _log(f"Greeting: {GREETINGS}")
     anim.run_async("animations/Stand/Gestures/Hey_1")
-    tts.speak(greeting, animated=True)
+    tts.speak(GREETINGS, animated=True)
     time.sleep(0.5)
 
     # ── 3. Ask for confirmation via STT ─────────────────────────────────
@@ -587,47 +572,9 @@ def run_scenario(
 
 
     game_round(tts, stt, leds, game, problem, dashboard_url=dashboard_url, tablet=tablet, anim=anim)
-    
-
-
-#     ### MENU START ###
-#     choice_event = _wait_for_menu_choice(timeout=60.0)
-
-#     if not choice_event:
-#         tts.speak(
-#             "Hmm, it seems you haven't chosen anything. "
-#             "That's okay, I'll be here when you're ready!",
-#             animated=True,
-#         )
-#         tablet.hide()
-#         _led(leds, "off")
-#         return
-
-#     topic = choice_event.get("value", "")
-#     reaction = REACTIONS.get(topic)
-
-#     if not reaction:
-#         tts.speak(f"Interesting choice: {topic}! I'm not sure how to respond to that one.", animated=True)
-#         tablet.hide()
-#         return
-
-#     _log(f"Reacting to: {topic}")
-
-#     # Show reaction on tablet first (non-blocking)
-#     tab_page, tab_params = reaction["tablet"]
-#     tablet.show_webview(_build_tablet_url(dashboard_url, tab_page, tab_params, on_robot))
-
-#     # Set LEDs
-#     _led(leds, reaction["led"])
-
-#     # Play animation and speak simultaneously
-#     anim.run_async(reaction["animation"])
-#     tts.speak(reaction["speech"], animated=True)
-
-#     time.sleep(1.5)
         
     
-#    ### MENU END ###
+    ### MENU END ###
 
     # ── 6. Closing ────────────────────────────────────────────────────────
     

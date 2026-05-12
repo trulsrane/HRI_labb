@@ -185,24 +185,8 @@ def _wait_for_level_select(
         return 4
     else:
         return 0
-
-
-
-def _wait_for_menu_choice(timeout: float = 30.0) -> dict:
-    """
-    Block until the broker receives a card_choice POST from the tablet,
-    or *timeout* seconds elapse.  Returns the payload dict, or {} on timeout.
-    """
-    _log("Waiting for menu selection on tablet…")
-    try:
-        data = _choice_queue.get(timeout=timeout)
-        _log(f"Menu choice received: {data.get('value', '?')}")
-        return data
-    except queue.Empty:
-        _log("Menu selection timeout.")
-        return {}
-
-
+    
+    
 def _led(leds: object, preset: str) -> None:
     """Dispatch a preset name string to the matching RobotLEDs method."""
     fn = getattr(leds, preset, None) or getattr(leds, "off")

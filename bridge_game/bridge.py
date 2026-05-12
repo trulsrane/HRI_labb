@@ -489,7 +489,7 @@ def celebrate_same(tts, leds, anim):
 def celebrate_unique(tts, leds, anim):
     """Phase 7B — User's solution differs, but is still valid."""
     leds.happy()
-    tts.speak(CELEBRATE_UNIQUE_1, animated=True)
+    tts.speak(CELEBRATE_UNIQUE, animated=True)
     anim.run_async("animations/Stand/Gestures/Hey_1")
     time.sleep(0.5)
 

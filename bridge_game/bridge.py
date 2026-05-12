@@ -4,12 +4,14 @@
 # =============================================================================
 """
 Multi-modal demo that chains:
-  1. Person detection — Pepper waits until someone stands in front of it.
-  2. Greeting        — Pepper greets the person with speech + animation.
-  3. Information     — Pepper asks for confirmation ("ready?") and checks STT.
-  4. Level selection   — Pepper asks which level to play, checks STT for keywords.
-  5. Gameplay         — Pepper describes the problem and gives hints based on STT keywords.
-  6. Closing          — Pepper thanks the user and says goodbye.
+  0. Person detection — Pepper waits until someone stands in front of it.
+  1. Greeting         — Pepper introduces herself and asks if the user wants to play.
+  2. Rules            — Pepper explains the puzzle and listens for 'ready' / 'explain'.
+  3. Level selection  — Pepper asks which level to play, checks STT for keywords.
+  4. Board setup      — User mirrors the starting position; Pepper waits for 'done'.
+  5. Solving          — User builds the path; hints are offered on request or silence.
+  6. Solution check   — Pepper reveals her solution and asks if it matches the user's.
+  7. Celebrate & end  — Same → Phase 7A; Different → Phase 7B; both end the session.
 
 Usage
 -----
@@ -55,40 +57,99 @@ _TABLET_SRC_DIR = Path(__file__).resolve().parent.parent / "dashboard" / "static
 #  Scenario content
 # ──────────────────────────────────────────────────────────────────────────────
 
+# ── Phase 1 — Greeting ────────────────────────────────────────────────────────
 GREETINGS = (
-    "Oh boy, I sure love playing with these blocks!"
+    "Hello there! My name is Pepper. I've been working on this logic puzzle called "
+    "Camelot Junior. A knight and a princess are stuck in a castle, and I need help "
+    "building them a path to meet. Would you like to play with me?"
 )
 
 READY_QUESTION = (
-    "Do you want to play this bridge game with me?"
-    "Say yes if so!"
-)
-
-CONFIRM_KEYWORDS = ("yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go")
-
-DENY_KEYWORDS = ("no", "nope")
-
-FINISHED_KEYWORDS = ("finish", "finished", "done")
-
-GAME_INTRO = (
-    "Perfect! This game is about making a bridge to connect the princess and the knight. "
-    "Unfortunately, my arms are only for waving, so you would have to move the blocks. "
-    "Which level do you want to play? "
-    "Starter, junior, expert, or master. Say which one you want! 1, 2, 3, 4, or the color works too!"
+    "Would you like to play with me? Just say yes if you'd like to!"
 )
 
 ON_DENY = (
-    "Alright, let me know if you change your mind."
+    "No problem! I'll be here if you change your mind."
 )
 
-STARTER_KEYWORDS = ("1", "one", "green","starter", "start")
-JUNIOR_KEYWORDS = ("2", "two", "yellow", "junior", "jr")
-EXPERT_KEYWORDS = ("3", "three", "red", "read", "expert")
-MASTER_KEYWORDS = ("4", "four", "purple", "master")
-
-LEVEL_SHOWCASE = (
-    "Look at my tablet to see how to set up."
+# ── Phase 2 — Rules ───────────────────────────────────────────────────────────
+RULES_INTRO   = "Great! Here's how it works."
+RULES_BODY_1  = (
+    "The knight and the princess are standing on towers on opposite sides of the board. "
+    "Your job is to use the spare blocks to build a path so they can walk to each other."
 )
+RULES_BODY_2  = (
+    "They can walk along flat surfaces and up or down stairs — but they can't jump or "
+    "climb straight walls. Take a look at my tablet while I explain."
+)
+RULES_PROMPT  = (
+    "Got it? Say 'ready' when you want to start, or 'explain' if you'd like to hear that again."
+)
+RULES_FALLBACK = (
+    "If you're unsure, let's just try the starter level and you'll pick it up as we go!"
+)
+
+# ── Phase 3 — Level Selection ─────────────────────────────────────────────────
+LEVEL_INTRO = (
+    "There are four difficulty levels — Starter, Junior, Expert, and Master. "
+    "If this is your first time, I'd recommend Starter. Which level would you like?"
+)
+LEVEL_FALLBACK = "I didn't catch that — I'll start us on Starter."
+
+# ── Phase 4 — Board Setup ─────────────────────────────────────────────────────
+SETUP_INTRO = (
+    "Before we start building, we need to set up the starting position. Take a look at "
+    "my tablet — place the towers and figurines exactly like the image."
+)
+SETUP_PROMPT = "Let me know when it matches the picture by saying 'done'."
+SETUP_NUDGE  = (
+    "Take your time! I'm showing the starting position on my tablet. Say 'done' when the "
+    "towers match the picture."
+)
+SETUP_OK     = "Perfect! The stage is set."
+
+# ── Phase 5 — Solving ─────────────────────────────────────────────────────────
+GAME_INTRO = (
+    "Now use the remaining blocks to build a path for the knight and the princess. "
+    "Remember — they can walk on flat surfaces and stairs, but they can't jump."
+)
+GAME_PROMPT = (
+    "If you get stuck, just say 'hint' and I'll give you a clue. Say 'finished' when "
+    "you think they can reach each other."
+)
+GAME_SILENT_HINT = "You've been quiet for a while — let me give you a small clue."
+GAME_HINTS_DONE  = "That's all the hints I've got — you're almost there, I can feel it!"
+
+# ── Phase 6 — Solution Check ──────────────────────────────────────────────────
+SOLUTION_REVEAL  = "Exciting! Let me show you the solution I had in mind."
+SOLUTION_QUERY   = "Does your path look the same as mine?"
+SOLUTION_REPROMPT = "Does your bridge look like the one on my tablet?"
+
+# ── Phase 7A / 7B — Celebrate ─────────────────────────────────────────────────
+CELEBRATE_SAME_1   = "You got it! That's exactly right — the knight and princess can finally meet."
+CELEBRATE_UNIQUE = (
+    "Oh, interesting — your path looks different from mine, but if the knight and "
+    "princess can reach each other, that counts!"
+)
+
+# ── End Session ───────────────────────────────────────────────────────────────
+END_SESSION = "Come back anytime — I've got 48 puzzles to work through and I could use the help."
+
+# ── Keyword master list ───────────────────────────────────────────────────────
+CONFIRM_KEYWORDS    = ("yes", "yeah", "yep", "sure", "okay", "ok", "go")
+DENY_KEYWORDS       = ("no", "nope", "not really", "no thanks")
+READY_KEYWORDS      = ("ready", "yes", "yeah", "start", "go", "let's go")
+REPEAT_KEYWORDS     = ("again", "explain", "repeat", "what")
+STARTER_KEYWORDS    = ("starter", "1", "one", "green", "easy")
+JUNIOR_KEYWORDS     = ("junior",  "2", "two", "yellow")
+EXPERT_KEYWORDS     = ("expert",  "3", "three", "red")
+MASTER_KEYWORDS     = ("master",  "4", "four", "purple", "hard")
+SETUP_DONE_KEYWORDS = ("done", "ready", "finished", "set")
+HELP_KEYWORDS       = ("help", "again", "repeat", "what", "confused")
+HINT_KEYWORDS       = ("hint", "help", "stuck", "clue")
+FINISHED_KEYWORDS   = ("finished", "done", "finish")
+MATCH_KEYWORDS      = ("yes", "yeah", "same", "matches", "identical", "yep")
+DIFF_KEYWORDS       = ("no", "different", "nope", "not the same", "not quite")
 
 # ──────────────────────────────────────────────────────────────────────────────
 #  Helpers
@@ -187,6 +248,120 @@ def _wait_for_level_select(
         return 0
     
     
+def _classify_response(stt: "SpeechToText", *categories):
+    """
+    Listen once and classify the transcript into one of several keyword categories.
+    *categories* is a sequence of (label, keywords) tuples — checked in order.
+    Returns the label of the first matching category, or None on silence / no match.
+    """
+    transcript = stt.listen()
+    if not transcript:
+        _log("No speech heard.")
+        return None
+    _log(f"Heard: '{transcript}'")
+    text = transcript.lower()
+    for label, keywords in categories:
+        if any(kw in text for kw in keywords):
+            return label
+    return None
+
+
+def _explain_rules(tts: "TextToSpeech", stt: "SpeechToText") -> None:
+    """
+    Phase 2 — Rules Explanation.
+    Speaks the rules, listens for ready/repeat, loops at most once on 'repeat'.
+    Falls through to Phase 3 on silence or after a single repeat.
+    """
+    for attempt in range(2):
+        tts.speak(RULES_INTRO, animated=True)
+        time.sleep(0.5)
+        tts.speak(RULES_BODY_1, animated=True)
+        time.sleep(0.5)
+        tts.speak(RULES_BODY_2, animated=True)
+        tts.speak(RULES_PROMPT, animated=True)
+
+        stt.register_and_subscribe()
+        response = _classify_response(
+            stt,
+            ("ready", READY_KEYWORDS),
+            ("repeat", REPEAT_KEYWORDS),
+        )
+        stt.unsubscribe()
+
+        if response == "ready":
+            return
+        if response == "repeat":
+            if attempt == 0:
+                continue  # repeat the rules once
+            tts.speak(RULES_FALLBACK, animated=True)
+            return
+
+        # silence / not understood — re-prompt and listen once more
+        tts.speak("Just say 'ready' when you want to start.", animated=True)
+        stt.register_and_subscribe()
+        response = _classify_response(
+            stt,
+            ("ready", READY_KEYWORDS),
+            ("repeat", REPEAT_KEYWORDS),
+        )
+        stt.unsubscribe()
+        if response == "repeat" and attempt == 0:
+            continue
+        # ready, silence again, or repeat-after-repeat → proceed to Phase 3
+        return
+
+
+def _wait_for_setup_done(tts: "TextToSpeech", stt: "SpeechToText") -> None:
+    """
+    Phase 4 — Board Setup.
+    Asks the user to set up the towers + figurines, waits for 'done'.
+    Re-explains once on help / two silences, then proceeds regardless.
+    """
+    tts.speak(SETUP_INTRO, animated=True)
+    time.sleep(0.5)
+    tts.speak(SETUP_PROMPT, animated=True)
+
+    silent_count = 0
+    re_explained = False
+    while True:
+        stt.register_and_subscribe()
+        response = _classify_response(
+            stt,
+            ("done", SETUP_DONE_KEYWORDS),
+            ("help", HELP_KEYWORDS),
+        )
+        stt.unsubscribe()
+
+        if response == "done":
+            tts.speak(SETUP_OK, animated=True)
+            return
+
+        if response == "help":
+            if re_explained:
+                tts.speak(SETUP_OK, animated=True)
+                return
+            re_explained = True
+            silent_count = 0
+            tts.speak(SETUP_INTRO, animated=True)
+            tts.speak(SETUP_PROMPT, animated=True)
+            continue
+
+        # silence / not understood
+        silent_count += 1
+        if silent_count == 1:
+            tts.speak(SETUP_NUDGE, animated=True)
+            continue
+        # 2nd silence — try once more after re-explaining, then give up
+        if not re_explained:
+            re_explained = True
+            silent_count = 0
+            tts.speak(SETUP_INTRO, animated=True)
+            tts.speak(SETUP_PROMPT, animated=True)
+            continue
+        tts.speak(SETUP_OK, animated=True)
+        return
+
+
 def _led(leds: object, preset: str) -> None:
     """Dispatch a preset name string to the matching RobotLEDs method."""
     fn = getattr(leds, preset, None) or getattr(leds, "off")
@@ -203,50 +378,62 @@ def _build_tablet_url(base_url: str, page: str, params: str, on_robot: bool = Fa
         url += f"?{params}"
     return url
 
-def present_problem(tts, stt, problem, dashboard_url: str, 
+def present_problem(tts, stt, dashboard_url: str,
     tablet: object, on_robot: bool = False):
-    
-    
-    tts.speak(problem["description"], animated=True)
+    """Phase 5 intro — speak the gameplay instructions."""
+    tts.speak(GAME_INTRO, animated=True)
     tablet.show_webview(_build_tablet_url(dashboard_url, "solution.html", on_robot))
-    tts.speak("Say 'hint' if you need help, or 'done' when you are finished.")
+    time.sleep(0.5)
+    tts.speak(GAME_PROMPT, animated=True)
 
-def compare_solution(tts, stt, game, problem):
-    tts.speak("Here on my tablet is the solution, did you get it right?", animated=True)
+
+def compare_solution(tts, stt):
+    """
+    Phase 6 — Solution Check.
+    Returns True on 'same' (→ 7A), False on 'different' or repeated silence (→ 7B).
+    """
+    tts.speak(SOLUTION_REVEAL, animated=True)
+    time.sleep(1.0)
+    tts.speak(SOLUTION_QUERY, animated=True)
+
     stt.register_and_subscribe()
-    answer = stt.listen()
+    response = _classify_response(
+        stt,
+        ("match", MATCH_KEYWORDS),
+        ("diff", DIFF_KEYWORDS),
+    )
     stt.unsubscribe()
 
-    if not answer:
-        tts.speak("I didn't hear that.")
+    if response == "match":
+        return True
+    if response == "diff":
         return False
 
-    if game.check_solution(answer, problem):
-        return True
-
-    return False
-
-def check_solution(tts, stt, game, problem):
-    tts.speak("Are you finished? Do you want to see if you got it right?", animated=True)
+    # silence / not understood — re-ask once
+    tts.speak(SOLUTION_REPROMPT, animated=True)
     stt.register_and_subscribe()
-    answer = stt.listen()
+    response = _classify_response(
+        stt,
+        ("match", MATCH_KEYWORDS),
+        ("diff", DIFF_KEYWORDS),
+    )
     stt.unsubscribe()
 
-    if not answer:
-        tts.speak("I didn't hear that.")
-        return -1
+    if response == "match":
+        return True
+    # diff or silence again → Phase 7B
+    return False
 
-    if _wait_for_confirmation:
-        return compare_solution(tts, stt, game, problem)
-    else:
-        tts.speak("Okay.")
-        return -1
 
-def game_round(tts, stt, leds, game, problem, dashboard_url: str, 
+def game_round(tts, stt, leds, problem, dashboard_url: str,
     tablet: object, anim):
-    """One full round of the bridge game. Returns True if solved."""
-    present_problem(tts, stt, problem, dashboard_url=dashboard_url, tablet=tablet)
+    """
+    Phase 5 — Solving game loop.
+    On 'finished', runs Phase 6 then Phase 7A or 7B.
+    """
+    present_problem(tts, stt, dashboard_url=dashboard_url, tablet=tablet)
     hint_index = 0
+    silent_count = 0
 
     while True:
         stt.register_and_subscribe()
@@ -254,52 +441,57 @@ def game_round(tts, stt, leds, game, problem, dashboard_url: str,
         stt.unsubscribe()
 
         if not heard:
-            tts.speak("You've gone quiet — let me give you a hint.")
-            give_hint(tts, problem, hint_index)
-            hint_index += 1
+            silent_count += 1
+            if silent_count >= 2:
+                tts.speak(GAME_SILENT_HINT, animated=True)
+                give_hint(tts, problem, hint_index)
+                hint_index += 1
+                silent_count = 0
             continue
 
+        silent_count = 0
         text = heard.lower()
 
-        if any(kw in text for kw in ("hint", "help", "stuck")):
+        if any(kw in text for kw in HINT_KEYWORDS):
             give_hint(tts, problem, hint_index)
             hint_index += 1
 
         elif any(kw in text for kw in FINISHED_KEYWORDS):
-            if check_solution(tts, stt, game, problem) == -1:
-                continue
-            elif check_solution(tts, stt, game, problem):
-                celebrate(tts, leds, anim)
-                return True
-            # wrong answer — defeat
+            # Phase 6 — Solution Check
+            same = compare_solution(tts, stt)
+            # Phase 7 — Celebrate (both paths end the session)
+            if same:
+                celebrate_same(tts, leds, anim)
             else:
-                defeat(tts, leds)
-                return True # still return True to move on to next problem
-            
+                celebrate_unique(tts, leds, anim)
+            return
 
         else:
-            tts.speak("Say 'hint' for help, or 'done' when ready.")
+            tts.speak("Say 'hint' for help, or 'finished' when ready.", animated=True)
+
 
 def give_hint(tts, problem, index):
     hints = problem["hints"]
     if index < len(hints):
-        tts.speak(f"Here's a hint. {hints[index]}")
+        tts.speak(f"Here's a hint. {hints[index]}", animated=True)
     else:
-        tts.speak("That's all the hints I have!")
+        tts.speak(GAME_HINTS_DONE, animated=True)
 
-def celebrate(tts, leds, anim):
+
+def celebrate_same(tts, leds, anim):
+    """Phase 7A — User's solution matches Pepper's."""
     leds.happy()
-    tts.speak("Congratulations! You solved the problem!", animated=True)
+    tts.speak(CELEBRATE_SAME_1, animated=True)
     anim.run_async("animations/Stand/Gestures/Hey_1")
-    tts.speak(
-        "Hooray, we did it!",
-        animated=True,
-    )
-    time.sleep(2.0)    
+    time.sleep(0.5)
 
-def defeat(tts, leds):
-    leds.sad()
-    tts.speak("Oh no, that's unfortunate! Better luck next time.", animated=True)
+
+def celebrate_unique(tts, leds, anim):
+    """Phase 7B — User's solution differs, but is still valid."""
+    leds.happy()
+    tts.speak(CELEBRATE_UNIQUE_1, animated=True)
+    anim.run_async("animations/Stand/Gestures/Hey_1")
+    time.sleep(0.5)
 
 
 class BridgeGame:
@@ -487,14 +679,12 @@ def run_scenario(
     # Blink LEDs to signal detection
     _led(leds, "happy")
 
-    # ── 2. Greet ────────────────────────────────────────────────────────
-    
+    # ── 2. Phase 1 — Greet & ask to play ────────────────────────────────
     _log(f"Greeting: {GREETINGS}")
     anim.run_async("animations/Stand/Gestures/Hey_1")
     tts.speak(GREETINGS, animated=True)
     time.sleep(0.5)
 
-    # ── 3. Ask for confirmation via STT ─────────────────────────────────
     # Show listening page on tablet
     tablet.show_webview(_build_tablet_url(dashboard_url, "listening.html", "prompt=Listening...", on_robot))
     _led(leds, "thinking")
@@ -502,30 +692,54 @@ def run_scenario(
     tts.speak(READY_QUESTION, animated=True)
 
     stt.register_and_subscribe()
-    confirmed = _wait_for_confirmation(stt)
+    response = _classify_response(
+        stt,
+        ("yes", CONFIRM_KEYWORDS),
+        ("no", DENY_KEYWORDS),
+    )
     stt.unsubscribe()
 
-    if not confirmed:
-        tts.speak(
-            "I didn't quite catch that. Let us play anyway!", animated=True
-        )
+    if response == "no":
+        tts.speak(ON_DENY, animated=True)
+        tablet.hide()
+        _led(leds, "off")
+        return
 
-    # ── 4. Choose level ────────────────────────────────────────────────
+    if response is None:
+        # Silence / not understood — re-ask once
+        tts.speak("I didn't catch that — just say yes if you'd like to play!", animated=True)
+        stt.register_and_subscribe()
+        response = _classify_response(
+            stt,
+            ("yes", CONFIRM_KEYWORDS),
+            ("no", DENY_KEYWORDS),
+        )
+        stt.unsubscribe()
+        if response != "yes":
+            tts.speak(ON_DENY, animated=True)
+            tablet.hide()
+            _led(leds, "off")
+            return
+
+    # ── 3. Phase 2 — Rules Explanation ──────────────────────────────────
+    _explain_rules(tts, stt)
+
+    # ──────────────────────────────────────────────────────────────────────────────
+    #  4. Phase 3 — Choose level
+    # ──────────────────────────────────────────────────────────────────────────────
     _led(leds, "happy")
 
     tablet.show_webview(_build_tablet_url(dashboard_url, "levels.html", "", on_robot))
-    tts.speak(GAME_INTRO, animated=True)
+    tts.speak(LEVEL_INTRO, animated=True)
 
     stt.register_and_subscribe()
     level = _wait_for_level_select(stt)
     stt.unsubscribe()
 
     if level <= 0:
-        tts.speak(
-            "I didn't quite catch that - Let's go with starter", animated=True
-        )
+        tts.speak(LEVEL_FALLBACK, animated=True)
         level = 1
-    
+
     # Switch to pickedLevel.html
     level_names = ["Starter", "Junior", "Expert", "Master"]
     level_imgs = [
@@ -534,9 +748,11 @@ def run_scenario(
         "https://people.cs.umu.se/~id23sem/bridgegame_img/Hard.jpg",
         "https://people.cs.umu.se/~id23sem/bridgegame_img/Master.jpg"
     ]
-    
+
     selected_name = level_names[level-1]
     selected_img = level_imgs[level-1]
+
+    tts.speak(f"Good choice! Let's set up level {selected_name}.", animated=True)
 
     # Build the parameters for picked level page
     params = "label={}&img={}".format(selected_name, selected_img)
@@ -547,28 +763,26 @@ def run_scenario(
        # subtract 1 because Python levels are 1,2,3,4 but JS arrays are 0,1,2,3
         memory.raiseEvent("BridgeGame/LevelSelected", level - 1)
 
-    
-    # ── 5. Play the game ────────────────────────────────────────────────
+    # ──────────────────────────────────────────────────────────────────────────────
+    #  5. Phase 4 — Board Setup
+    # ──────────────────────────────────────────────────────────────────────────────
+    _wait_for_setup_done(tts, stt)
+
+    # ──────────────────────────────────────────────────────────────────────────────
+    #  6. Phase 5/6/7 — Solve, Check, Celebrate
+    # ──────────────────────────────────────────────────────────────────────────────
     game = BridgeGame()
     problem = game.get_problem(level)
     _led(leds, "happy")
-    tts.speak(LEVEL_SHOWCASE, animated=True)
 
+    game_round(tts, stt, leds, problem, dashboard_url=dashboard_url, tablet=tablet, anim=anim)
 
-    game_round(tts, stt, leds, game, problem, dashboard_url=dashboard_url, tablet=tablet, anim=anim)
-        
-    
-    ### MENU END ###
-
-    # ── 6. Closing ────────────────────────────────────────────────────────
-    
-
-    tts.speak(
-        "Thank you for playing. Come back anytime.",
-        animated=True,
-    )
+    # ──────────────────────────────────────────────────────────────────────────────
+    #  7. End Session
+    # ──────────────────────────────────────────────────────────────────────────────
+    tts.speak(END_SESSION, animated=True)
     anim.run_async("animations/Stand/Gestures/BowShort_1")
-    
+
     time.sleep(2.0)
 
     tablet.hide()

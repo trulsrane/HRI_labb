@@ -426,7 +426,7 @@ def compare_solution(tts, stt):
 
 
 def game_round(tts, stt, leds, problem, dashboard_url: str,
-    tablet: object, anim):
+    tablet: object, anim, level, on_robot):
     """
     Phase 5 — Solving game loop.
     On 'finished', runs Phase 6 then Phase 7A or 7B.
@@ -457,8 +457,24 @@ def game_round(tts, stt, leds, problem, dashboard_url: str,
             hint_index += 1
 
         elif any(kw in text for kw in FINISHED_KEYWORDS):
+
             # Phase 6 — Solution Check
+            level_names = ["Starter", "Junior", "Expert", "Master"]
+            level_img = [
+                "https://people.cs.umu.se/~id23sem/bridgegame_img/Beginner_sol.jpg",
+                "https://people.cs.umu.se/~id23sem/bridgegame_img/Medium_sol.jpg",
+                "https://people.cs.umu.se/~id23sem/bridgegame_img/Hard_sol.jpg",
+                "https://people.cs.umu.se/~id23sem/bridgegame_img/Master_sol.jpg"
+            ]
+            selected_name_sol = level_names[level-1]
+            selected_img_sol = level_img[level-1]
+
+            # Build the parameters for picked level page
+            params = "label={}&img={}".format(selected_name_sol, selected_img_sol)
+            tablet.show_webview(_build_tablet_url(dashboard_url, "solution.html", params, on_robot))
+
             same = compare_solution(tts, stt)
+
             # Phase 7 — Celebrate (both paths end the session)
             if same:
                 celebrate_same(tts, leds, anim)

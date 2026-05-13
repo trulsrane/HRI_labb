@@ -753,8 +753,7 @@ def run_scenario(
         stt.unsubscribe()
         if response != "yes":
             tts.speak(ON_DENY, animated=True)
-            tablet.hide()
-            _led(leds, "off")
+            end_session(tts, anim, tablet, leds)
             return
 
     # ── 3. Phase 2 — Rules Explanation ──────────────────────────────────

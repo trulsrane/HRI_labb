@@ -510,6 +510,18 @@ def celebrate_unique(tts, leds, anim):
     time.sleep(0.5)
 
 
+def end_session(tts, anim, tablet, leds):
+    """End the session with a goodbye message."""
+    tts.speak(END_SESSION, animated=True)
+    anim.run_async("animations/Stand/Gestures/BowShort_1")
+
+    time.sleep(2.0)
+
+    tablet.hide()
+    _led(leds, "off")
+    _log("Demo complete.")
+    return
+
 class BridgeGame:
     #TODO move this to a json? perhaps
     PROBLEMS = [
@@ -717,8 +729,7 @@ def run_scenario(
 
     if response == "no":
         tts.speak(ON_DENY, animated=True)
-        tablet.hide()
-        _led(leds, "off")
+        end_session(tts, anim, tablet, leds)
         return
 
     if response is None:
@@ -796,14 +807,7 @@ def run_scenario(
     # ──────────────────────────────────────────────────────────────────────────────
     #  7. End Session
     # ──────────────────────────────────────────────────────────────────────────────
-    tts.speak(END_SESSION, animated=True)
-    anim.run_async("animations/Stand/Gestures/BowShort_1")
-
-    time.sleep(2.0)
-
-    tablet.hide()
-    _led(leds, "off")
-    _log("Demo complete.")
+    end_session(tts, anim, tablet, leds)
 
 
 # ──────────────────────────────────────────────────────────────────────────────

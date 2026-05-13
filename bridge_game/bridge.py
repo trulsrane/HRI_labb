@@ -218,35 +218,44 @@ def _wait_for_level_select(
     keywords_4: tuple = MASTER_KEYWORDS,
 ) -> int:
     """
-    Listen for keywords associated with a specific level.
+    Listen for keywords associated with a specific level or input on touchscreen.
     Returns the level number of the matched keyword, and 0 if keyword doesnt match.
     returns -1 if no speech is heard in time.
     """
-    _log(f"Listening for confirmation (keywords: {keywords_1, keywords_2, keywords_3, keywords_4}) …")
+    _log(f"Listening for confirmation (keywords: {keywords_1, keywords_2, keywords_3, keywords_4}) or touchscreen input…")
+    # Check for touchscreen input during intro
+    try:
+        t_input = _choice_queue.get_nowait()
+        _log(f"Tablet input received before listening: {t_input}")
+        return int(t_input.get("index")) + 1
+    except (queue.Empty, ValueError, TypeError):
+        pass
+
+    # Check voice input 
     transcript = stt.listen()
+    
+    # Check tablet input during session
+    if not _choice_queue.empty():
+        try:
+            t_input = _choice_queue.get_nowait()
+            _log(f"Tablet input received during/after listening: {t_input}")
+            return int(t_input.get("index")) + 1
+        except (queue.Empty, ValueError, TypeError):
+            pass
+
     if not transcript:
         _log("No speech heard.")
         return -1
+
+    # Process voice transcript
     _log(f"Heard: '{transcript}'")
-
-
-    response = transcript
-
-    # process response …
-    if any(kw in transcript.lower() for kw in keywords_1):
-        return 1
-        
-    elif any(kw in transcript.lower() for kw in keywords_2):
-        return 2
-
-    elif any(kw in transcript.lower() for kw in keywords_3):
-        return 3
-
-    elif any(kw in transcript.lower() for kw in keywords_4):
-        return 4
-    else:
-        return 0
+    text = transcript.lower()
+    if any(kw in text for kw in keywords_1): return 1
+    if any(kw in text for kw in keywords_2): return 2
+    if any(kw in text for kw in keywords_3): return 3
+    if any(kw in text for kw in keywords_4): return 4
     
+    return 0
     
 def _classify_response(stt: "SpeechToText", *categories):
     """

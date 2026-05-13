@@ -569,7 +569,7 @@ def run_scenario(
     problem = game.get_problem(level)
     _led(leds, "happy")
     tts.speak(LEVEL_SHOWCASE, animated=True)
-
+    
 
     game_round(tts, stt, leds, game, problem)
 

@@ -101,7 +101,7 @@ SETUP_INTRO = (
     "Before we start building, we need to set up the starting position. Take a look at "
     "my tablet — place the towers and figurines exactly like the image."
 )
-SETUP_PROMPT = "Let me know when it matches the picture by saying 'done'."
+SETUP_PROMPT = "Let me know when it matches the picture by saying 'finished'."
 SETUP_NUDGE  = (
     "Take your time! I'm showing the starting position on my tablet. Say 'finished' when the "
     "towers match the picture."
@@ -141,7 +141,7 @@ DENY_KEYWORDS       = ("no", "nope", "not really", "no thanks")
 READY_KEYWORDS      = ("ready", "yes", "yeah", "start", "go", "let's go")
 REPEAT_KEYWORDS     = ("again", "explain", "repeat", "what")
 STARTER_KEYWORDS    = ("starter", "1", "one", "green", "easy")
-JUNIOR_KEYWORDS     = ("junior",  "2", "two", "yellow")
+JUNIOR_KEYWORDS     = ("junior",  "2", "two", "yellow", "jr")
 EXPERT_KEYWORDS     = ("expert",  "3", "three", "red")
 MASTER_KEYWORDS     = ("master",  "4", "four", "purple", "hard")
 SETUP_DONE_KEYWORDS = ("done", "ready", "finished", "set")
@@ -802,7 +802,7 @@ def run_scenario(
     problem = game.get_problem(level)
     _led(leds, "happy")
 
-    game_round(tts, stt, leds, problem, dashboard_url=dashboard_url, tablet=tablet, anim=anim)
+    game_round(tts, stt, leds, problem, dashboard_url=dashboard_url, tablet=tablet, anim=anim, level=level, on_robot=on_robot)
 
     # ──────────────────────────────────────────────────────────────────────────────
     #  7. End Session

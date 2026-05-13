@@ -391,7 +391,6 @@ def present_problem(tts, stt, dashboard_url: str,
     tablet: object, on_robot: bool = False):
     """Phase 5 intro — speak the gameplay instructions."""
     tts.speak(GAME_INTRO, animated=True)
-    tablet.show_webview(_build_tablet_url(dashboard_url, "solution.html", on_robot))
     time.sleep(0.5)
     tts.speak(GAME_PROMPT, animated=True)
 
@@ -440,6 +439,7 @@ def game_round(tts, stt, leds, problem, dashboard_url: str,
     Phase 5 — Solving game loop.
     On 'finished', runs Phase 6 then Phase 7A or 7B.
     """
+    _log("trying to present problem:")
     present_problem(tts, stt, dashboard_url=dashboard_url, tablet=tablet)
     hint_index = 0
     silent_count = 0
@@ -708,12 +708,12 @@ def run_scenario(
     tts.set_speed(90)
 
     # ── 1. Wait for a person ────────────────────────────────────────────
-    found = _wait_for_person(camera, detector, timeout=120.0)
+    found = _wait_for_person(camera, detector, timeout=120.0) #Fastnar här ibland och måste starta om roboten
     if not found:
         _log("Nobody showed up. Ending demo.")
         return
 
-    # Blink LEDs to signal detection
+    #Blink LEDs to signal detection
     _led(leds, "happy")
 
     # ── 2. Phase 1 — Greet & ask to play ────────────────────────────────
@@ -768,12 +768,12 @@ def run_scenario(
     tts.speak(LEVEL_INTRO, animated=True)
 
     stt.register_and_subscribe()
-    level = _wait_for_level_select(stt)
+    level = 0
+    while level <= 0:
+        level = _wait_for_level_select(stt)
+        if level <= 0:
+            tts.speak("Sorry, I didn't catch that. Please say Starter, Junior, Expert, or Master.", animated=True)
     stt.unsubscribe()
-
-    # if level <= 0:
-    #     tts.speak(LEVEL_FALLBACK, animated=True)
-    #     level = 1
 
     # Switch to pickedLevel.html
     level_names = ["Starter", "Junior", "Expert", "Master"]

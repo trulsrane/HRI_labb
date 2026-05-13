@@ -61,7 +61,7 @@ _TABLET_SRC_DIR = Path(__file__).resolve().parent.parent / "dashboard" / "static
 GREETINGS = (
     "Hello there! My name is Pepper. I've been working on this logic puzzle called "
     "Camelot Junior. A knight and a princess are stuck in a castle, and I need help "
-    "building them a path to meet. Would you like to play with me?"
+    "building them a path to meet."
 )
 
 READY_QUESTION = (
@@ -103,7 +103,7 @@ SETUP_INTRO = (
 )
 SETUP_PROMPT = "Let me know when it matches the picture by saying 'done'."
 SETUP_NUDGE  = (
-    "Take your time! I'm showing the starting position on my tablet. Say 'done' when the "
+    "Take your time! I'm showing the starting position on my tablet. Say 'finished' when the "
     "towers match the picture."
 )
 SETUP_OK     = "Perfect! The stage is set."
@@ -678,13 +678,13 @@ def run_scenario(
     # ── 0. Setup ────────────────────────────────────────────────────────
     _log("Setting up robot…")
     posture.stand()
-    # awareness.start()
+    awareness.start()
     camera.start()
     time.sleep(1.0)
 
     # setup the speech volume and speed
     tts.set_volume(50)
-    tts.set_speed(100)
+    tts.set_speed(90)
 
     # ── 1. Wait for a person ────────────────────────────────────────────
     found = _wait_for_person(camera, detector, timeout=120.0)
@@ -842,7 +842,7 @@ def main() -> None:
     else:
         _log(f"Connecting to {args.url} …")
         session   = PepperSession.connect(args.url)
-        PepperSession.disable_autonomous_life()
+        #PepperSession.disable_autonomous_life()
         tts       = TextToSpeech(session)
         stt       = SpeechToText(session)
         camera    = PepperCamera(session)

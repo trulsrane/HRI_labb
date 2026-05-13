@@ -76,14 +76,14 @@ ON_DENY = (
 RULES_INTRO   = "Great! Here's how it works."
 RULES_BODY_1  = (
     "The knight and the princess are standing on towers on opposite sides of the board. "
-    "Your job is to use the spare blocks to build a path so they can walk to each other."
+    "- Your job is to use the spare blocks to build a path so they can walk to each other."
 )
 RULES_BODY_2  = (
     "They can walk along flat surfaces and up or down stairs — but they can't jump or "
     "climb straight walls. Take a look at my tablet while I explain."
 )
 RULES_PROMPT  = (
-    "Got it? Say 'ready' when you want to start, or 'explain' if you'd like to hear that again."
+    "- Got it? Say 'ready' when you want to start, or 'explain' if you'd like to hear that again."
 )
 RULES_FALLBACK = (
     "If you're unsure, let's just try the starter level and you'll pick it up as we go!"
@@ -91,7 +91,7 @@ RULES_FALLBACK = (
 
 # ── Phase 3 — Level Selection ─────────────────────────────────────────────────
 LEVEL_INTRO = (
-    "There are four difficulty levels — Starter, Junior, Expert, and Master. "
+    "Great! - There are four difficulty levels — Starter, Junior, Expert, and Master. "
     "If this is your first time, I'd recommend Starter. Which level would you like?"
 )
 LEVEL_FALLBACK = "I didn't catch that — I'll start us on Starter."
@@ -126,7 +126,7 @@ SOLUTION_QUERY   = "Does your path look the same as mine?"
 SOLUTION_REPROMPT = "Does your bridge look like the one on my tablet?"
 
 # ── Phase 7A / 7B — Celebrate ─────────────────────────────────────────────────
-CELEBRATE_SAME_1   = "You got it! That's exactly right — the knight and princess can finally meet."
+CELEBRATE_SAME_1   = "Wohoo! That's awesome! — the knight and princess can finally meet."
 CELEBRATE_UNIQUE = (
     "Oh, interesting — your path looks different from mine, but if the knight and "
     "princess can reach each other, that counts!"
@@ -771,9 +771,9 @@ def run_scenario(
     level = _wait_for_level_select(stt)
     stt.unsubscribe()
 
-    if level <= 0:
-        tts.speak(LEVEL_FALLBACK, animated=True)
-        level = 1
+    # if level <= 0:
+    #     tts.speak(LEVEL_FALLBACK, animated=True)
+    #     level = 1
 
     # Switch to pickedLevel.html
     level_names = ["Starter", "Junior", "Expert", "Master"]

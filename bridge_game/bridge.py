@@ -500,12 +500,12 @@ def run_scenario(
     # ── 0. Setup ────────────────────────────────────────────────────────
     _log("Setting up robot…")
     posture.stand()
-    # awareness.start()
+    awareness.start()
     camera.start()
     time.sleep(1.0)
 
     # setup the speech volume and speed
-    tts.set_volume(50)
+    tts.set_volume(75)
     tts.set_speed(100)
 
     # ── 1. Wait for a person ────────────────────────────────────────────

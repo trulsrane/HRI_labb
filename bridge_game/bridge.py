@@ -18,19 +18,40 @@ Usage
     # Start the dashboard first in another terminal:
     python -m HRI_lab_Pepper.dashboard --url tcp://ROBOT_IP:9559
 
-    # Then run this script:
-    python bridge_game/bridge.py --url tcp://ROBOT_IP:9559 [--port 8080]
+    # Then run this script (study run on the robot):
+    python bridge_game/bridge.py --url tcp://ROBOT_IP:9559 \
+        --participant P01 --condition voice [--port 8080]
 
-    # Or run without a live robot (dry-run mode):s
-    python bridge_game/bridge.py --dry-run
+    # Or run without a live robot (dry-run mode):
+    python bridge_game/bridge.py --dry-run --participant TEST --condition voice
+
+Study logging
+-------------
+    --participant ID    Required-ish label for the user-study run (default: 'anon').
+    --condition voice|text   Which condition this run is. Recorded in the log.
+    --log-dir PATH      Where to write logs (default: bridge_game/logs/).
+
+    Each run produces:
+      logs/study.db                                  — cumulative SQLite (all runs)
+      logs/{participant}_{condition}_{ts}.csv        — per-run merged CSV
+                                                       (events + dialog turns, ts-sorted)
+
+    The CSV is exported automatically on normal exit OR on Ctrl+C. If the
+    process dies hard, the SQLite rows are still safe — re-export with
+    DialogDB.get_session(sid) / get_events().
+
+    Excel: the CSV starts with a 'sep=,' hint so double-click works on
+    non-US locales. For pandas/R, use skiprows=1 / skip=1.
 """
 
 import argparse
+import csv
 import queue
 import time
 import sys
 import threading
 import json as _json
+from datetime import datetime
 from pathlib import Path
 
 # ── Robot drivers ──────────────────────────────────────────────────────────────
@@ -45,6 +66,7 @@ try:
     from HRI_lab_Pepper.motion.posture import RobotPosture
     from HRI_lab_Pepper.motion.leds import RobotLEDs
     from HRI_lab_Pepper.motion.animation_player import AnimationPlayer
+    from HRI_lab_Pepper.database import DialogDB
 except ImportError as e:
     print(f"[DEMO] Import error: {e}")
     print("[DEMO] Is the package installed? Run: pip install -e .")
@@ -160,6 +182,125 @@ def _log(msg: str) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+#  Study logger — uses DialogDB; exports per-run CSV at the end
+# ──────────────────────────────────────────────────────────────────────────────
+
+_DB = None
+_SESSION_ID = None
+_RUN_LABEL = None
+_PHASE = "init"
+_LISTEN_START = None  # monotonic timestamp when the current stt.listen() began
+
+
+def _init_study_log(participant: str, condition: str, log_dir: Path):
+    """Open the study DB and start a new session for this run."""
+    global _DB, _SESSION_ID, _RUN_LABEL
+    log_dir.mkdir(parents=True, exist_ok=True)
+    _DB = DialogDB(str(log_dir / "study.db"))
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    _RUN_LABEL = f"{participant}_{condition}_{ts}"
+    _SESSION_ID = _DB.new_session(label=_RUN_LABEL)
+    _DB.log_event("scenario_meta", {
+        "participant": participant,
+        "condition": condition,
+        "run_label": _RUN_LABEL,
+        "session_id": _SESSION_ID,
+    })
+
+
+def _slog(event_type: str, detail: str = "", duration_ms=None):
+    """Record a study event (phase change, hint, classification, etc.)."""
+    if _DB is None:
+        return
+    data = {"session_id": _SESSION_ID, "phase": _PHASE}
+    if detail:
+        data["detail"] = detail
+    if duration_ms is not None:
+        data["duration_ms"] = int(duration_ms)
+    _DB.log_event(event_type, data)
+
+
+def _sphase(phase: str):
+    """Switch to a new phase and log the transition."""
+    global _PHASE
+    _PHASE = phase
+    _slog("phase_start")
+
+
+def _listen_begin():
+    """Mark the start of an stt.listen() call so we can measure response latency."""
+    global _LISTEN_START
+    _LISTEN_START = time.monotonic()
+    _slog("stt_listen_start")
+
+
+def _listen_end(transcript):
+    """Log the transcript (or silence) and the latency since _listen_begin()."""
+    global _LISTEN_START
+    dur = None
+    if _LISTEN_START is not None:
+        dur = (time.monotonic() - _LISTEN_START) * 1000
+        _LISTEN_START = None
+    if transcript:
+        # Record the user utterance as a real dialog turn AND as an event.
+        if _DB is not None:
+            _DB.log("user", str(transcript), session_id=_SESSION_ID, phase=_PHASE)
+        _slog("stt_heard", detail=str(transcript), duration_ms=dur)
+    else:
+        _slog("stt_silence", duration_ms=dur)
+
+
+def _close_study_log(log_dir: Path):
+    """End the session and export this run's events + dialog to a per-run CSV."""
+    if _DB is None or _SESSION_ID is None:
+        return
+    try:
+        _DB.end_session(_SESSION_ID)
+        csv_path = log_dir / f"{_RUN_LABEL}.csv"
+        _export_run_to_csv(_DB, _SESSION_ID, csv_path)
+        _log(f"Study log exported → {csv_path}")
+    finally:
+        _DB.close()
+
+
+def _export_run_to_csv(db: "DialogDB", session_id: int, csv_path: Path):
+    """Merge events (filtered to this session) and dialog turns into one CSV."""
+    rows = []
+    for e in db.get_events(limit=1_000_000):
+        data = e.get("data") or {}
+        if isinstance(data, dict) and data.get("session_id") == session_id:
+            rows.append({
+                "ts": e["ts"], "kind": "event", "event_type": e["event_type"],
+                "role": "", "text": "",
+                "phase": data.get("phase", ""),
+                "detail": data.get("detail", ""),
+                "duration_ms": data.get("duration_ms", ""),
+            })
+    for t in db.get_session(session_id):
+        meta = {}
+        if t.get("metadata"):
+            try:
+                meta = _json.loads(t["metadata"])
+            except (_json.JSONDecodeError, TypeError):
+                pass
+        rows.append({
+            "ts": t["ts"], "kind": "dialog", "event_type": "",
+            "role": t["role"], "text": t["text"],
+            "phase": meta.get("phase", ""),
+            "detail": t.get("intent") or "",
+            "duration_ms": "",
+        })
+    rows.sort(key=lambda r: r["ts"])
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        f.write("sep=,\n")  # Excel directive: forces comma delimiter on non-US locales
+        writer = csv.DictWriter(f, fieldnames=[
+            "ts", "kind", "phase", "event_type", "role", "text", "detail", "duration_ms"
+        ])
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 #  Tablet input queue
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -202,12 +343,16 @@ def _wait_for_confirmation(
     Returns True if a matching keyword was heard.
     """
     _log(f"Listening for confirmation (keywords: {keywords}) …")
+    _listen_begin()
     transcript = stt.listen()
+    _listen_end(transcript)
     if not transcript:
         _log("No speech heard.")
         return False
     _log(f"Heard: '{transcript}'")
-    return any(kw in transcript.lower() for kw in keywords)
+    matched = any(kw in transcript.lower() for kw in keywords)
+    _slog("classified", detail=f"confirm={matched}")
+    return matched
 
 
 def _wait_for_level_select(
@@ -227,19 +372,25 @@ def _wait_for_level_select(
     try:
         t_input = _choice_queue.get_nowait()
         _log(f"Tablet input received before listening: {t_input}")
-        return int(t_input.get("index")) + 1
+        idx = int(t_input.get("index")) + 1
+        _slog("level_selected", detail=f"level={idx},source=tablet_pre")
+        return idx
     except (queue.Empty, ValueError, TypeError):
         pass
 
-    # Check voice input 
+    # Check voice input
+    _listen_begin()
     transcript = stt.listen()
-    
+    _listen_end(transcript)
+
     # Check tablet input during session
     if not _choice_queue.empty():
         try:
             t_input = _choice_queue.get_nowait()
             _log(f"Tablet input received during/after listening: {t_input}")
-            return int(t_input.get("index")) + 1
+            idx = int(t_input.get("index")) + 1
+            _slog("level_selected", detail=f"level={idx},source=tablet_post")
+            return idx
         except (queue.Empty, ValueError, TypeError):
             pass
 
@@ -250,11 +401,12 @@ def _wait_for_level_select(
     # Process voice transcript
     _log(f"Heard: '{transcript}'")
     text = transcript.lower()
-    if any(kw in text for kw in keywords_1): return 1
-    if any(kw in text for kw in keywords_2): return 2
-    if any(kw in text for kw in keywords_3): return 3
-    if any(kw in text for kw in keywords_4): return 4
-    
+    for lvl, kws in ((1, keywords_1), (2, keywords_2), (3, keywords_3), (4, keywords_4)):
+        if any(kw in text for kw in kws):
+            _slog("level_selected", detail=f"level={lvl},source=voice")
+            return lvl
+
+    _slog("classified", detail="level=unrecognized")
     return 0
     
 def _classify_response(stt: "SpeechToText", *categories):
@@ -263,15 +415,20 @@ def _classify_response(stt: "SpeechToText", *categories):
     *categories* is a sequence of (label, keywords) tuples — checked in order.
     Returns the label of the first matching category, or None on silence / no match.
     """
+    _listen_begin()
     transcript = stt.listen()
+    _listen_end(transcript)
     if not transcript:
         _log("No speech heard.")
+        _slog("classified", detail="result=silence")
         return None
     _log(f"Heard: '{transcript}'")
     text = transcript.lower()
     for label, keywords in categories:
         if any(kw in text for kw in keywords):
+            _slog("classified", detail=f"result={label}")
             return label
+    _slog("classified", detail="result=unmatched")
     return None
 
 
@@ -446,12 +603,15 @@ def game_round(tts, stt, leds, problem, dashboard_url: str,
 
     while True:
         stt.register_and_subscribe()
+        _listen_begin()
         heard = stt.listen()
+        _listen_end(heard)
         stt.unsubscribe()
 
         if not heard:
             silent_count += 1
             if silent_count >= 2:
+                _slog("silent_hint_trigger", detail=f"silent_count={silent_count}")
                 tts.speak(GAME_SILENT_HINT, animated=True)
                 give_hint(tts, problem, hint_index)
                 hint_index += 1
@@ -462,10 +622,12 @@ def game_round(tts, stt, leds, problem, dashboard_url: str,
         text = heard.lower()
 
         if any(kw in text for kw in HINT_KEYWORDS):
+            _slog("hint_request")
             give_hint(tts, problem, hint_index)
             hint_index += 1
 
         elif any(kw in text for kw in FINISHED_KEYWORDS):
+            _slog("user_finished", detail=f"hints_used={hint_index}")
 
             # Phase 6 — Solution Check
             level_names = ["Starter", "Junior", "Expert", "Master"]
@@ -482,9 +644,12 @@ def game_round(tts, stt, leds, problem, dashboard_url: str,
             params = "label={}&img={}".format(selected_name_sol, selected_img_sol)
             tablet.show_webview(_build_tablet_url(dashboard_url, "solution.html", params, on_robot))
 
+            _sphase("solution_check")
             same = compare_solution(tts, stt)
+            _slog("solution_compared", detail=f"matched={same}")
 
             # Phase 7 — Celebrate (both paths end the session)
+            _sphase("celebrate")
             if same:
                 celebrate_same(tts, leds, anim)
             else:
@@ -498,13 +663,16 @@ def game_round(tts, stt, leds, problem, dashboard_url: str,
 def give_hint(tts, problem, index):
     hints = problem["hints"]
     if index < len(hints):
+        _slog("hint_given", detail=f"index={index}")
         tts.speak(f"Here's a hint. {hints[index]}", animated=True)
     else:
+        _slog("hint_exhausted", detail=f"index={index}")
         tts.speak(GAME_HINTS_DONE, animated=True)
 
 
 def celebrate_same(tts, leds, anim):
     """Phase 7A — User's solution matches Pepper's."""
+    _slog("outcome", detail="same")
     leds.happy()
     tts.speak(CELEBRATE_SAME_1, animated=True)
     anim.run_async("animations/Stand/Gestures/Hey_1")
@@ -513,6 +681,7 @@ def celebrate_same(tts, leds, anim):
 
 def celebrate_unique(tts, leds, anim):
     """Phase 7B — User's solution differs, but is still valid."""
+    _slog("outcome", detail="unique")
     leds.happy()
     tts.speak(CELEBRATE_UNIQUE, animated=True)
     anim.run_async("animations/Stand/Gestures/Hey_1")
@@ -697,6 +866,8 @@ def run_scenario(
     """Execute the full demo scenario."""
 
     # ── 0. Setup ────────────────────────────────────────────────────────
+    _sphase("setup")
+    _slog("scenario_start", detail=f"on_robot={on_robot}")
     _log("Setting up robot…")
     posture.stand()
     # awareness.start()
@@ -708,15 +879,19 @@ def run_scenario(
     tts.set_speed(100)
 
     # ── 1. Wait for a person ────────────────────────────────────────────
+    _sphase("await_person")
     found = _wait_for_person(camera, detector, timeout=120.0) #Fastnar här ibland och måste starta om roboten
     if not found:
+        _slog("person_timeout")
         _log("Nobody showed up. Ending demo.")
         return
+    _slog("person_detected")
 
     #Blink LEDs to signal detection
     _led(leds, "happy")
 
     # ── 2. Phase 1 — Greet & ask to play ────────────────────────────────
+    _sphase("greeting")
     _log(f"Greeting: {GREETINGS}")
     anim.run_async("animations/Stand/Gestures/Hey_1")
     tts.speak(GREETINGS, animated=True)
@@ -737,12 +912,14 @@ def run_scenario(
     stt.unsubscribe()
 
     if response == "no":
+        _slog("user_declined")
         tts.speak(ON_DENY, animated=True)
         end_session(tts, anim, tablet, leds)
         return
 
     if response is None:
         # Silence / not understood — re-ask once
+        _slog("reprompt", detail="greeting")
         tts.speak("I didn't catch that — just say yes if you'd like to play!", animated=True)
         stt.register_and_subscribe()
         response = _classify_response(
@@ -752,16 +929,19 @@ def run_scenario(
         )
         stt.unsubscribe()
         if response != "yes":
+            _slog("user_declined")
             tts.speak(ON_DENY, animated=True)
             end_session(tts, anim, tablet, leds)
             return
 
     # ── 3. Phase 2 — Rules Explanation ──────────────────────────────────
+    _sphase("rules")
     _explain_rules(tts, stt)
 
     # ──────────────────────────────────────────────────────────────────────────────
     #  4. Phase 3 — Choose level
     # ──────────────────────────────────────────────────────────────────────────────
+    _sphase("level_select")
     _led(leds, "happy")
 
     tablet.show_webview(_build_tablet_url(dashboard_url, "levels.html", "", on_robot))
@@ -772,6 +952,7 @@ def run_scenario(
     while level <= 0:
         level = _wait_for_level_select(stt)
         if level <= 0:
+            _slog("reprompt", detail="level_select")
             tts.speak("Sorry, I didn't catch that. Please say Starter, Junior, Expert, or Master.", animated=True)
     stt.unsubscribe()
 
@@ -798,14 +979,18 @@ def run_scenario(
        # subtract 1 because Python levels are 1,2,3,4 but JS arrays are 0,1,2,3
         memory.raiseEvent("BridgeGame/LevelSelected", level - 1)
 
+    _slog("level_confirmed", detail=f"name={selected_name}")
+
     # ──────────────────────────────────────────────────────────────────────────────
     #  5. Phase 4 — Board Setup
     # ──────────────────────────────────────────────────────────────────────────────
+    _sphase("setup_board")
     _wait_for_setup_done(tts, stt)
 
     # ──────────────────────────────────────────────────────────────────────────────
     #  6. Phase 5/6/7 — Solve, Check, Celebrate
     # ──────────────────────────────────────────────────────────────────────────────
+    _sphase("solving")
     game = BridgeGame()
     problem = game.get_problem(level)
     _led(leds, "happy")
@@ -815,7 +1000,9 @@ def run_scenario(
     # ──────────────────────────────────────────────────────────────────────────────
     #  7. End Session
     # ──────────────────────────────────────────────────────────────────────────────
+    _sphase("end")
     end_session(tts, anim, tablet, leds)
+    _slog("scenario_end")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -823,6 +1010,13 @@ def run_scenario(
 # ──────────────────────────────────────────────────────────────────────────────
 
 def main() -> None:
+    # Force UTF-8 stdout so Unicode characters (→, å, etc.) don't crash on Windows cp1252.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
     parser = argparse.ArgumentParser(description="Pepper menu demo scenario")
     parser.add_argument("--test",     action="store_true",
                         help="Run built-in logic tests and exit")
@@ -832,11 +1026,21 @@ def main() -> None:
                         help="Dashboard server port (default: 8080)")
     parser.add_argument("--dry-run",  action="store_true",
                         help="Run without a real robot (fake drivers)")
+    parser.add_argument("--participant", default="anon",
+                        help="Participant ID for the study log (e.g. P01)")
+    parser.add_argument("--condition", default="voice", choices=["voice", "text"],
+                        help="Study condition label for the log (default: voice)")
+    parser.add_argument("--log-dir", default=None,
+                        help="Directory for per-run CSV logs (default: <script_dir>/logs)")
     args = parser.parse_args()
 
     if args.test:
         _run_tests()
         return
+
+    # Initialize the study logger (DialogDB-backed; one CSV per run on close).
+    log_dir = Path(args.log_dir) if args.log_dir else Path(__file__).resolve().parent / "logs"
+    _init_study_log(args.participant, args.condition, log_dir)
 
     if args.dry_run:
         _log("=== DRY-RUN MODE (no robot) ===")
@@ -851,6 +1055,7 @@ def main() -> None:
         posture   = _FakePosture()
         leds      = _FakeLEDs()
         awareness = _FakeAwareness()
+        session   = None
     else:
         _log(f"Connecting to {args.url} …")
         session   = PepperSession.connect(args.url)
@@ -916,8 +1121,10 @@ def main() -> None:
             session=session,
         )
     except KeyboardInterrupt:
+        _slog("interrupted")
         _log("Interrupted by user.")
     finally:
+        _close_study_log(log_dir)
         if not args.dry_run:
             _log("Cleaning up …")
             for fn, label in [

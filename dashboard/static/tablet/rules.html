@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Rules</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        text-align: center;
+        background: #f0f0f0;
+        padding: 5%;
+      }
+      .btn {
+        padding: 20px 40px;
+        font-size: 24px;
+        background: #ffffff;
+        color: rgb(0, 0, 0);
+        border: 3px solid #000000;
+        border-radius: 10px;
+        margin: 10px;
+        cursor: pointer;
+        outline: none;
+        transition: all 0.2s ease-in-out;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Game Rules</h1>
+    <p
+      style="
+        font-size: 20px;
+        text-align: left;
+        max-width: 600px;
+        margin: 0 auto 30px auto;
+      "
+    >
+      Build a path from the knight to the princess using the layout shown next.
+      Flat blocks and stairs are fine, but climbing vertical drops isn't
+      allowed!
+    </p>
+    <button class="btn" onclick="sendAction('ready')">Ready!</button>
+    <button
+      class="btn"
+      style="background: #ffffff"
+      onclick="sendAction('explain')"
+    >
+      Explain again
+    </button>
+
+    <script src="/libs/qimessaging/1.0/qimessaging.js"></script>
+    <script>
+      function sendAction(act) {
+        const payload = { action: act };
+        console.log("Sending action:", payload);
+
+        if (typeof QiSession === "undefined") {
+          fetch("/tablet_input_mock", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          }).catch((err) => console.error("Mock fetch failed:", err));
+        } else {
+          try {
+            var session = new QiSession();
+            session.service("TabletInput").then(function (svc) {
+              svc.notify(JSON.stringify(payload));
+            });
+          } catch (e) {
+            console.error("QiSession initialization failed:", e);
+          }
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Solution</title>
+    <link rel="stylesheet" href="base.css" />
+    <style>
+      body {
+        background: #ffffff;
+        color: rgb(0, 0, 0);
+        text-align: center;
+        overflow: auto;
+        font-family: sans-serif;
+      }
+      .page {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+      .level-sol-img {
+        height: 50vh;
+        width: auto;
+        max-width: 80%;
+        min-width: 300px;
+        min-height: 250px;
+        border-radius: 20px;
+        border: 3px solid #ffa500;
+        background-color: #000000;
+      }
+      .level-title {
+        color: #ffa500;
+        font-size: 3rem;
+        font-weight: bold;
+        margin-top: 15px;
+      }
+      .button-container {
+        margin-top: 25px;
+        display: flex;
+        gap: 20px;
+      }
+      .btn-sol {
+        padding: 18px 40px;
+        font-size: 1.6rem;
+        font-weight: bold;
+        color: rgb(0, 0, 0);
+        border: 3px solid #000000;
+        border-radius: 12px;
+        cursor: pointer;
+        outline: none;
+        transition: all 0.2s ease-in-out;
+      }
+      .btn-yes {
+        background-color: #ffffff;
+      }
+      .btn-no {
+        background-color: #ffffff;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <img
+        src=""
+        id="display-img"
+        class="level-sol-img"
+        alt="Loading solution image..."
+      />
+      <div id="display-label" class="level-title">Loading Solution...</div>
+      <p style="font-size: 1.5rem; margin: 10px 0">
+        Does this match your solution?
+      </p>
+
+      <div class="button-container">
+        <button class="btn-sol btn-yes" onclick="sendAction('correct')">
+          Yes
+        </button>
+        <button class="btn-sol btn-no" onclick="sendAction('wrong')">No</button>
+      </div>
+    </div>
+
+    <!-- IMAGE PARSER -->
+    <script>
+      (function () {
+        console.log("Image parser running...");
+        const currentURL = window.location.href;
+
+        // Baseline fallback settings to guard against missing URL strings on localhost
+        let labelValue = "Junior Solution";
+        let imgValue =
+          "https://people.cs.umu.se/~id23sem/bridgegame_img/Medium_sol.jpg";
+
+        // Check if query parameters are present in the browser bar
+        if (currentURL.includes("label=")) {
+          labelValue = decodeURIComponent(
+            currentURL.split("label=")[1].split("&")[0],
+          );
+        } else {
+          console.log(
+            "No label parameter in URL. Using local baseline: " + labelValue,
+          );
+        }
+
+        if (currentURL.includes("img=")) {
+          imgValue = decodeURIComponent(
+            currentURL.split("img=")[1].split("&")[0],
+          );
+        } else {
+          console.log(
+            "No img parameter in URL. Using local baseline: " + imgValue,
+          );
+        }
+
+        // Commit content directly to DOM nodes
+        const displayLabel = document.getElementById("display-label");
+        const displayImg = document.getElementById("display-img");
+
+        if (displayLabel) displayLabel.textContent = labelValue;
+        if (displayImg) {
+          displayImg.src = imgValue;
+          console.log("Image source successfully targeted to:", imgValue);
+        }
+      })();
+    </script>
+
+    <!-- ROBOT COMMUNICATION -->
+    <script
+      src="/libs/qimessaging/1.0/qimessaging.js"
+      onerror="
+        console.warn(
+          'Pepper library not found locally. Running in Mock Laptop Mode.',
+        )
+      "
+    ></script>
+    <script>
+      function sendAction(act) {
+        const payload = { action: act };
+        console.log("Sending action:", payload);
+
+        if (typeof QiSession === "undefined") {
+          fetch("/tablet_input_mock", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          }).catch((err) => console.error("Mock fetch execution failed:", err));
+        } else {
+          try {
+            var session = new QiSession();
+            session.service("TabletInput").then(function (svc) {
+              svc.notify(JSON.stringify(payload));
+            });
+          } catch (e) {
+            console.error("QiSession execution failed:", e);
+          }
+        }
+      }
+    </script>
+  </body>
+</html>

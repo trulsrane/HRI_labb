@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Start Game</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        text-align: center;
+        background: #f0f0f0;
+        padding-top: 10%;
+      }
+      .btn {
+        padding: 20px 40px;
+        font-size: 24px;
+        margin: 20px;
+        border-radius: 10px;
+        cursor: pointer;
+        outline: none;
+        border: 3px solid #000000;
+        transition: all 0.2s ease-in-out;
+      }
+      .btn-yes {
+        background: #ffffff;
+        color: rgb(0, 0, 0);
+      }
+      .btn-no {
+        background: #fafafa;
+        color: rgb(0, 0, 0);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>The Bridge Game</h1>
+    <p style="font-size: 20px">Would you like to play?</p>
+    <button class="btn btn-yes" onclick="sendAction('play')">Play</button>
+    <button class="btn btn-no" onclick="sendAction('no')">Another time!</button>
+
+    <script src="/libs/qimessaging/1.0/qimessaging.js"></script>
+    <script>
+      function sendAction(act) {
+        const payload = { action: act };
+        console.log("Sending action:", payload);
+
+        if (typeof QiSession === "undefined") {
+          fetch("/tablet_input_mock", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          }).catch((err) => console.error("Mock fetch failed:", err));
+        } else {
+          try {
+            var session = new QiSession();
+            session.service("TabletInput").then(function (svc) {
+              svc.notify(JSON.stringify(payload));
+            });
+          } catch (e) {
+            console.error("QiSession initialization failed:", e);
+          }
+        }
+      }
+    </script>
+  </body>
+</html>

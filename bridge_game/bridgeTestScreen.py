@@ -187,7 +187,7 @@ def _sphase(phase: str):
 def _listen_begin():
     global _LISTEN_START
     _LISTEN_START = time.monotonic()
-    _slog("stt_listen_start")
+    _slog("touch_wait_start")
 
 
 def _listen_end(transcript):
@@ -281,52 +281,39 @@ def _wait_for_person(
     return False
 
 
-def _wait_for_confirmation(
-    stt: "SpeechToText",
-    keywords: tuple = CONFIRM_KEYWORDS,
-) -> bool:
-    """Blocks and reads from the tablet event queue instead of STT audio stream."""
-    _log(f"Listening for tablet confirmation (keywords: {keywords}) …")
+def _wait_for_confirmation(keywords: tuple = CONFIRM_KEYWORDS) -> bool:
+    """Blocks until a tablet touch event arrives and checks it against keywords."""
+    _log(f"Waiting for touch confirmation (keywords: {keywords}) …")
     _listen_begin()
-    
     try:
         t_input = _choice_queue.get(block=True)
-        if isinstance(t_input, dict):
-            transcript = t_input.get("action", t_input.get("text", ""))
-        else:
-            transcript = str(t_input)
+        transcript = t_input.get("action", t_input.get("text", "")) if isinstance(t_input, dict) else str(t_input)
     except Exception:
         transcript = ""
-
     _listen_end(transcript)
     if not transcript:
-        _log("No screen input received.")
+        _log("No touch input received.")
         return False
-        
-    _log(f"Received screen input: '{transcript}'")
+    _log(f"Touch input: '{transcript}'")
     matched = any(kw in str(transcript).lower() for kw in keywords)
     _slog("classified", detail=f"confirm={matched}")
     return matched
 
-def _classify_response(stt: "SpeechToText", *categories):
-    """Blocks and maps tablet payloads into keyword evaluation workflows."""
+
+def _classify_response(*categories):
+    """Blocks until a tablet touch event arrives and classifies it into a category."""
     _listen_begin()
     try:
         t_input = _choice_queue.get(block=True)
-        if isinstance(t_input, dict):
-            transcript = t_input.get("action", t_input.get("text", ""))
-        else:
-            transcript = str(t_input)
+        transcript = t_input.get("action", t_input.get("text", "")) if isinstance(t_input, dict) else str(t_input)
     except Exception:
         transcript = ""
-        
     _listen_end(transcript)
     if not transcript:
-        _log("No screen input heard.")
+        _log("No touch input received.")
         _slog("classified", detail="result=silence")
         return None
-        
-    _log(f"Received touch input: '{transcript}'")
+    _log(f"Touch input: '{transcript}'")
     text = str(transcript).lower()
     for label, keywords in categories:
         if any(kw in text for kw in keywords):
@@ -336,7 +323,7 @@ def _classify_response(stt: "SpeechToText", *categories):
     return None
 
 
-def _explain_rules(tts, stt, tablet, dashboard_url, on_robot):
+def _explain_rules(tts, tablet, dashboard_url, on_robot):
     while True:
         tablet.show_webview(_build_tablet_url(dashboard_url, "rules.html", "", on_robot))
         tts.speak(RULES_INTRO, animated=True)
@@ -347,13 +334,10 @@ def _explain_rules(tts, stt, tablet, dashboard_url, on_robot):
         tts.speak(RULES_PROMPT, animated=True)
 
         while True:
-            stt.register_and_subscribe()
             response = _classify_response(
-                stt,
                 ("ready", READY_KEYWORDS),
                 ("repeat", REPEAT_KEYWORDS),
             )
-            stt.unsubscribe()
 
             if response == "ready":
                 return
@@ -366,21 +350,17 @@ def _explain_rules(tts, stt, tablet, dashboard_url, on_robot):
             )
 
 
-def _wait_for_setup_done(tts: "TextToSpeech", stt: "SpeechToText") -> None:
+def _wait_for_setup_done(tts) -> None:
     tts.speak(SETUP_INTRO, animated=True)
     time.sleep(0.5)
     tts.speak(SETUP_PROMPT, animated=True)
 
-    silent_count = 0
     re_explained = False
     while True:
-        stt.register_and_subscribe()
         response = _classify_response(
-            stt,
             ("done", SETUP_DONE_KEYWORDS),
             ("help", HELP_KEYWORDS),
         )
-        stt.unsubscribe()
 
         if response == "done":
             tts.speak(SETUP_OK, animated=True)
@@ -391,23 +371,11 @@ def _wait_for_setup_done(tts: "TextToSpeech", stt: "SpeechToText") -> None:
                 tts.speak(SETUP_OK, animated=True)
                 return
             re_explained = True
-            silent_count = 0
             tts.speak(SETUP_INTRO, animated=True)
             tts.speak(SETUP_PROMPT, animated=True)
             continue
 
-        silent_count += 1
-        if silent_count == 1:
-            tts.speak(SETUP_NUDGE, animated=True)
-            continue
-        if not re_explained:
-            re_explained = True
-            silent_count = 0
-            tts.speak(SETUP_INTRO, animated=True)
-            tts.speak(SETUP_PROMPT, animated=True)
-            continue
-        tts.speak(SETUP_OK, animated=True)
-        return
+        tts.speak(SETUP_NUDGE, animated=True)
 
 
 def _led(leds: object, preset: str) -> None:
@@ -424,78 +392,50 @@ def _build_tablet_url(base_url: str, page: str, params: str, on_robot: bool = Fa
         url += f"?{params}"
     return url
 
-def present_problem(tts, stt, dashboard_url: str, tablet: object, on_robot: bool = False):
+def present_problem(tts, dashboard_url: str, tablet: object, on_robot: bool = False):
     tts.speak(GAME_INTRO, animated=True)
     time.sleep(0.5)
     tts.speak(GAME_PROMPT, animated=True)
 
 
-def compare_solution(tts, stt):
+def compare_solution(tts):
     tts.speak(SOLUTION_REVEAL, animated=True)
     time.sleep(1.0)
     tts.speak(SOLUTION_QUERY, animated=True)
 
-    stt.register_and_subscribe()
     response = _classify_response(
-        stt,
         ("match", MATCH_KEYWORDS),
         ("diff", DIFF_KEYWORDS),
     )
-    stt.unsubscribe()
-
     if response == "match":
         return True
     if response == "diff":
         return False
 
     tts.speak(SOLUTION_REPROMPT, animated=True)
-    stt.register_and_subscribe()
     response = _classify_response(
-        stt,
         ("match", MATCH_KEYWORDS),
         ("diff", DIFF_KEYWORDS),
     )
-    stt.unsubscribe()
-
-    if response == "match":
-        return True
-    return False
+    return response == "match"
 
 
-def game_round(tts, stt, leds, problem, dashboard_url: str, tablet: object, anim, level, on_robot):
-    _log("trying to present problem:")
-    present_problem(tts, stt, dashboard_url=dashboard_url, tablet=tablet, on_robot=on_robot)
+def game_round(tts, leds, problem, dashboard_url: str, tablet: object, anim, level, on_robot):
+    present_problem(tts, dashboard_url=dashboard_url, tablet=tablet, on_robot=on_robot)
     hint_index = 0
-    silent_count = 0
 
     while True:
-        tablet.show_webview(_build_tablet_url(dashboard_url, "hint.html", "", on_robot))
-        stt.register_and_subscribe()
         _listen_begin()
-        
         try:
             t_input = _choice_queue.get(block=True)
-            if isinstance(t_input, dict):
-                heard = t_input.get("action", t_input.get("text", ""))
-            else:
-                heard = str(t_input)
+            heard = t_input.get("action", t_input.get("text", "")) if isinstance(t_input, dict) else str(t_input)
         except Exception:
             heard = ""
-            
         _listen_end(heard)
-        stt.unsubscribe()
 
         if not heard:
-            silent_count += 1
-            if silent_count >= 2:
-                _slog("silent_hint_trigger", detail=f"silent_count={silent_count}")
-                tts.speak("Look at my screen for the hint.", animated=True)
-                give_hint(tts, problem, hint_index)
-                hint_index += 1
-                silent_count = 0
             continue
 
-        silent_count = 0
         text = str(heard).lower()
 
         if any(kw in text for kw in HINT_KEYWORDS):
@@ -509,7 +449,7 @@ def game_round(tts, stt, leds, problem, dashboard_url: str, tablet: object, anim
             tablet.show_webview(_build_tablet_url(dashboard_url, "solution2.html", "", on_robot))
 
             _sphase("solution_check")
-            same = compare_solution(tts, stt)
+            same = compare_solution(tts)
             _slog("solution_compared", detail=f"matched={same}")
 
             _sphase("celebrate")
@@ -591,19 +531,18 @@ def _run_tests():
 
 def run_scenario(
     tts: object,
-    stt: object,
     camera: object,
     detector: object,
     tablet: object,
     anim: object,
     posture: object,
     leds: object,
-    #awareness: object,
+    awareness: object,
     session: object,
     dashboard_url: str,
     on_robot: bool = False,
 ) -> None:
-    """Execute the full demo scenario matching the original code shape exactly."""
+    """Execute the full touch-input demo scenario."""
 
     # ── 0. Setup ────────────────────────────────────────────────────────
     _sphase("setup")
@@ -640,13 +579,10 @@ def run_scenario(
 
     tts.speak(READY_QUESTION, animated=True)
 
-    stt.register_and_subscribe()
     response = _classify_response(
-        stt,
         ("yes", CONFIRM_KEYWORDS),
         ("no", DENY_KEYWORDS),
     )
-    stt.unsubscribe()
 
     if response == "no":
         _slog("user_declined")
@@ -657,13 +593,10 @@ def run_scenario(
     if response is None:
         _slog("reprompt", detail="greeting")
         tts.speak("Please press the screen if you would like to play!", animated=True)
-        stt.register_and_subscribe()
         response = _classify_response(
-            stt,
             ("yes", CONFIRM_KEYWORDS),
             ("no", DENY_KEYWORDS),
         )
-        stt.unsubscribe()
         if response != "yes":
             _slog("user_declined")
             tts.speak(ON_DENY, animated=True)
@@ -672,7 +605,7 @@ def run_scenario(
 
     # ── 3. Phase 2 — Rules Explanation ──────────────────────────────────
     _sphase("rules")
-    _explain_rules(tts, stt, tablet, dashboard_url, on_robot)
+    _explain_rules(tts, tablet, dashboard_url, on_robot)
 
     # ──────────────────────────────────────────────────────────────────────────────
     #  4. Phase 3 — Choose level
@@ -698,7 +631,7 @@ def run_scenario(
     #  5. Phase 4 — Board Setup
     # ──────────────────────────────────────────────────────────────────────────────
     _sphase("setup_board")
-    _wait_for_setup_done(tts, stt)
+    _wait_for_setup_done(tts)
 
     # ──────────────────────────────────────────────────────────────────────────────
     #  6. Phase 5/6/7 — Solve, Check, Celebrate
@@ -708,7 +641,7 @@ def run_scenario(
     problem = game.get_problem(level_name)
     _led(leds, "happy")
 
-    game_round(tts, stt, leds, problem, dashboard_url=dashboard_url, tablet=tablet, anim=anim, level=level_name, on_robot=on_robot)
+    game_round(tts, leds, problem, dashboard_url=dashboard_url, tablet=tablet, anim=anim, level=level_name, on_robot=on_robot)
 
     # ──────────────────────────────────────────────────────────────────────────────
     #  7. End Session
@@ -766,7 +699,7 @@ def main() -> None:
         anim      = AnimationPlayer(session)
         posture   = RobotPosture(session)
         leds      = RobotLEDs(session)
-        #awareness = BasicAwareness(session)
+        awareness = BasicAwareness(session)
 
         _robot_host = args.url.split("://")[-1].split(":")[0]
         import socket as _socket
@@ -801,14 +734,13 @@ def main() -> None:
     try:
         run_scenario(
             tts=tts,
-            stt=stt,
             camera=camera,
             detector=detector,
             tablet=tablet,
             anim=anim,
             posture=posture,
             leds=leds,
-            #awareness=awareness,
+            awareness=awareness,
             dashboard_url=dashboard_url,
             on_robot=on_robot,
             session=session,
@@ -823,7 +755,7 @@ def main() -> None:
             for fn, label in [
                 (stt.unsubscribe,          "STT unsubscribe"),
                 (camera.stop,              "camera stop"),
-                #(awareness.stop,           "awareness stop"),
+                (awareness.stop,            "awareness stop"),
                 (leds.off,                 "LEDs off"),
                 (tablet.hide,              "tablet hide"),
                 (lambda: posture.stand(speed=0.5), "posture stand"),

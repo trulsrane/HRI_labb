@@ -22,7 +22,7 @@
         box-sizing: border-box;
       }
       .phase-title {
-        color: #ffa500;
+        color: #000000;
         font-size: 3rem;
         font-weight: bold;
         margin-bottom: 5px;
@@ -40,7 +40,7 @@
         margin: 0;
       }
       .counter-highlight {
-        color: #ffa500;
+        color: #000000;
         font-weight: bold;
       }
       .button-container {
@@ -63,35 +63,18 @@
         transition: all 0.2s ease-in-out;
       }
       .btn-action-hint {
-        background-color: #000000;
+        background-color: #ffffff;
+        color: rgb(0, 0, 0);
       }
       .btn-action-finished {
-        background-color: #4caf50;
-        border-color: #388e3c;
-      }
-      .btn-hint-ui:disabled {
-        background-color: #1a1a1a;
-        border-color: #222;
-        color: #555;
-        cursor: not-allowed;
-        box-shadow: none;
-        transform: none;
+        background-color: #ffffff;
+        color: rgb(0, 0, 0);
       }
     </style>
   </head>
   <body>
     <div class="page">
       <div class="phase-title">Need a hint?</div>
-      <p style="font-size: 1.4rem; color: #aaa; margin: 0">
-        Take your time to assemble the components
-      </p>
-
-      <div class="counter-card">
-        <p class="counter-text">
-          Hints Used:
-          <span id="hint-counter" class="counter-highlight">0</span> / 2
-        </p>
-      </div>
 
       <div class="button-container">
         <button
@@ -99,7 +82,7 @@
           class="btn-hint-ui btn-action-hint"
           onclick="triggerHint()"
         >
-          Hint
+          Get Hint
         </button>
         <button
           class="btn-hint-ui btn-action-finished"

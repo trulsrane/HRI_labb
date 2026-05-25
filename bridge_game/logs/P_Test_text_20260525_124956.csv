@@ -1,0 +1,25 @@
+sep=,
+ts,kind,phase,event_type,role,text,detail,duration_ms
+2026-05-25 12:49:56,event,,scenario_meta,,,,
+2026-05-25 12:50:07,event,setup,phase_start,,,,
+2026-05-25 12:50:07,event,setup,scenario_start,,,on_robot=True,
+2026-05-25 12:50:10,event,await_person,phase_start,,,,
+2026-05-25 12:50:12,event,await_person,person_detected,,,,
+2026-05-25 12:50:12,event,greeting,phase_start,,,,
+2026-05-25 12:50:27,event,greeting,stt_listen_start,,,,
+2026-05-25 12:50:29,event,greeting,tablet_heard,,,play,1952
+2026-05-25 12:50:29,event,greeting,classified,,,result=yes,
+2026-05-25 12:50:29,dialog,greeting,,tablet_touch,play,,
+2026-05-25 12:50:30,event,rules,phase_start,,,,
+2026-05-25 12:50:55,event,rules,stt_listen_start,,,,
+2026-05-25 12:50:59,event,rules,tablet_heard,,,ready,4022
+2026-05-25 12:50:59,event,rules,classified,,,result=ready,
+2026-05-25 12:50:59,dialog,rules,,tablet_touch,ready,,
+2026-05-25 12:51:00,event,level_select,phase_start,,,,
+2026-05-25 12:51:02,event,level_select,level_confirmed,,,name=Junior,
+2026-05-25 12:51:02,event,setup_board,phase_start,,,,
+2026-05-25 12:51:16,event,setup_board,stt_listen_start,,,,
+2026-05-25 12:51:20,event,setup_board,tablet_heard,,,done,4123
+2026-05-25 12:51:20,event,setup_board,classified,,,result=done,
+2026-05-25 12:51:20,dialog,setup_board,,tablet_touch,done,,
+2026-05-25 12:51:23,event,solving,phase_start,,,,

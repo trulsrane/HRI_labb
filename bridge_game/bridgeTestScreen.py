@@ -569,17 +569,19 @@ def end_session(tts, anim, tablet, leds):
     return
 
 class BridgeGame:
-    PROBLEM = [{
-            "id": "junior",
-            "description": "Junior level: Build a bridge with 3 blocks, but one block is missing!",
-            "hints": [
-                "You can use the two blocks to create a sloped bridge.",
-                "Try placing one block on the left and one on the right, then balance the third block on top to connect them!",
-            ],
-            "solution_keywords": ["yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go"]
-            }]
-    
-    def get_problem(self, level): return self.PROBLEM[level]
+    LEVEL = {
+        "id": "junior",
+        "description": "Junior level: Build a bridge with 3 blocks, but one block is missing!",
+        "hints": [
+            "You can use the two blocks to create a sloped bridge.",
+            "Try placing one block on the left and one on the right, then balance the third block on top to connect them!",
+        ],
+        "solution_keywords": ["yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go"],
+    }
+
+    def get_problem(self, level=None):
+        # Only one level in the screen-only study; ignore the argument.
+        return self.LEVEL
 
     def check_solution(self, answer, problem):
         if not answer:

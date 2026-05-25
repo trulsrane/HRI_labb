@@ -701,46 +701,19 @@ def end_session(tts, anim, tablet, leds):
     return
 
 class BridgeGame:
-    #TODO move this to a json? perhaps
-    PROBLEMS = [
-        {
-            "id": "starter",
-            "description": "Starter level: Build a simple bridge with 2 blocks.",
-            "hints": [
-                "Try placing one block on the left and one on the right, leaving a gap in the middle.",
-                "Make sure the blocks are close enough to each other to connect!",
-            ],
-            "solution_keywords": ["yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go"]
-        },
-        {
-            "id": "junior",
-            "description": "Junior level: Build a bridge with 3 blocks, but one block is missing!",
-            "hints": [
-                "You can use the two blocks to create a sloped bridge.",
-                "Try placing one block on the left and one on the right, then balance the third block on top to connect them!",
-            ],
-            "solution_keywords": ["yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go"]
-        },
-        {
-            "id": "expert",
-            "description": "Expert level: Build a bridge with 4 blocks, but two blocks are missing!",
-            "hints": [
-                "You can create a zig-zag pattern to connect the pieces.",
-                "Try placing two blocks on the left and two on the right, then balance the remaining blocks on top to connect them!",
-            ],
-            "solution_keywords": ["yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go"]
-        },
-        {
-            "id": "master",
-            "description": "Master level: Build a bridge with 5 blocks, but three blocks are missing!",
-            "hints": [
-                "This one is tricky! You will need to create a more complex structure to connect all the pieces.",
-                "Try placing three blocks on the left and two on the right, then balance the remaining blocks on top to connect them all together!",
-            ],
-            "solution_keywords": ["yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go"]
-        }
-    ]
-    def get_problem(self, level): return self.PROBLEMS[level-1]
+    LEVEL = {
+        "id": "junior",
+        "description": "Junior level: Build a bridge with 3 blocks, but one block is missing!",
+        "hints": [
+            "You can use the two blocks to create a sloped bridge.",
+            "Try placing one block on the left and one on the right, then balance the third block on top to connect them!",
+        ],
+        "solution_keywords": ["yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go"],
+    }
+
+    def get_problem(self, level=None):
+        # Only one level in the study; ignore the argument.
+        return self.LEVEL
 
     def check_solution(self, answer, problem):
         if not answer:
@@ -753,19 +726,19 @@ class BridgeGame:
 def _run_tests():
     game = BridgeGame()
 
-    # get_problem returns the right level
-    assert game.get_problem(1)["id"] == "starter"
-    assert game.get_problem(4)["id"] == "master"
+    # get_problem returns the hardcoded Junior level regardless of argument
+    assert game.get_problem(1)["id"] == "junior"
+    assert game.get_problem(4)["id"] == "junior"
+    assert game.get_problem()["id"]  == "junior"
     print("  get_problem      OK")
 
     # check_solution: keyword matching
-    p1 = game.get_problem(1)
-    assert game.check_solution("yes", p1)         # pass
-    assert not game.check_solution("no clue", p1)            # no keywords → fail
-    assert not game.check_solution(None, p1)                  # None → fail
-    p3 = game.get_problem(3)
-    assert game.check_solution("yep", p3)    # pass
-    assert not game.check_solution("no", p3)       # fail
+    p = game.get_problem()
+    assert game.check_solution("yes", p)                      # pass
+    assert not game.check_solution("no clue", p)              # no keywords → fail
+    assert not game.check_solution(None, p)                   # None → fail
+    assert game.check_solution("yep", p)                      # pass
+    assert not game.check_solution("nah", p)                  # fail
     print("  check_solution   OK")
 
     # _wait_for_confirmation keyword matching
@@ -939,44 +912,23 @@ def run_scenario(
     _explain_rules(tts, stt)
 
     # ──────────────────────────────────────────────────────────────────────────────
-    #  4. Phase 3 — Choose level
+    #  4. Phase 3 — Level (hardcoded to Junior for the study)
     # ──────────────────────────────────────────────────────────────────────────────
     _sphase("level_select")
     _led(leds, "happy")
 
-    tablet.show_webview(_build_tablet_url(dashboard_url, "levels.html", "", on_robot))
-    tts.speak(LEVEL_INTRO, animated=True)
+    level = 2  # Junior (kept as a 1-based number for legacy memory.raiseEvent shape)
+    selected_name = "Junior"
+    selected_img  = "https://people.cs.umu.se/~id23sem/bridgegame_img/Medium.jpg"
 
-    stt.register_and_subscribe()
-    level = 0
-    while level <= 0:
-        level = _wait_for_level_select(stt)
-        if level <= 0:
-            _slog("reprompt", detail="level_select")
-            tts.speak("Sorry, I didn't catch that. Please say Starter, Junior, Expert, or Master.", animated=True)
-    stt.unsubscribe()
+    tts.speak(f"Let's set up level {selected_name}.", animated=True)
 
-    # Switch to pickedLevel.html
-    level_names = ["Starter", "Junior", "Expert", "Master"]
-    level_imgs = [
-        "https://people.cs.umu.se/~id23sem/bridgegame_img/Beginner.jpg",
-        "https://people.cs.umu.se/~id23sem/bridgegame_img/Medium.jpg",
-        "https://people.cs.umu.se/~id23sem/bridgegame_img/Hard.jpg",
-        "https://people.cs.umu.se/~id23sem/bridgegame_img/Master.jpg"
-    ]
-
-    selected_name = level_names[level-1]
-    selected_img = level_imgs[level-1]
-
-    tts.speak(f"Good choice! Let's set up level {selected_name}.", animated=True)
-
-    # Build the parameters for picked level page
     params = "label={}&img={}".format(selected_name, selected_img)
     tablet.show_webview(_build_tablet_url(dashboard_url, "pickedLevel.html", params, on_robot))
 
     if session:
         memory = session.service("ALMemory")
-       # subtract 1 because Python levels are 1,2,3,4 but JS arrays are 0,1,2,3
+        # subtract 1 because Python levels are 1,2,3,4 but JS arrays are 0,1,2,3
         memory.raiseEvent("BridgeGame/LevelSelected", level - 1)
 
     _slog("level_confirmed", detail=f"name={selected_name}")

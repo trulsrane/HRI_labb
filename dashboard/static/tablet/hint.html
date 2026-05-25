@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hints</title>
+    <style>
+      body {
+        background: #ffffff;
+        color: rgb(0, 0, 0);
+        text-align: center;
+        overflow: auto;
+        font-family: sans-serif;
+      }
+      .page {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+      .phase-title {
+        color: #ffa500;
+        font-size: 3rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+      .counter-card {
+        background: #1a1a1a;
+        border: 2px solid #333;
+        border-radius: 16px;
+        padding: 20px 40px;
+        margin: 25px 0;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+      }
+      .counter-text {
+        font-size: 1.8rem;
+        margin: 0;
+      }
+      .counter-highlight {
+        color: #ffa500;
+        font-weight: bold;
+      }
+      .button-container {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        margin-top: 15px;
+        width: 100%;
+        max-width: 400px;
+      }
+      .btn-hint-ui {
+        padding: 20px;
+        font-size: 1.6rem;
+        font-weight: bold;
+        color: white;
+        border: 3px solid #333;
+        border-radius: 12px;
+        cursor: pointer;
+        outline: none;
+        transition: all 0.2s ease-in-out;
+      }
+      .btn-action-hint {
+        background-color: #000000;
+      }
+      .btn-action-finished {
+        background-color: #4caf50;
+        border-color: #388e3c;
+      }
+      .btn-hint-ui:disabled {
+        background-color: #1a1a1a;
+        border-color: #222;
+        color: #555;
+        cursor: not-allowed;
+        box-shadow: none;
+        transform: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="phase-title">Need a Hand?</div>
+      <p style="font-size: 1.4rem; color: #aaa; margin: 0">
+        Take your time to assemble the components
+      </p>
+
+      <div class="counter-card">
+        <p class="counter-text">
+          Hints Used:
+          <span id="hint-counter" class="counter-highlight">0</span> / 2
+        </p>
+      </div>
+
+      <div class="button-container">
+        <button
+          id="hint-button"
+          class="btn-hint-ui btn-action-hint"
+          onclick="triggerHint()"
+        >
+          Request Hint
+        </button>
+        <button
+          class="btn-hint-ui btn-action-finished"
+          onclick="sendAction('finished')"
+        >
+          I'm Finished!
+        </button>
+      </div>
+    </div>
+
+    <!-- Communication Pipeline Component Layer -->
+    <script
+      src="/libs/qimessaging/1.0/qimessaging.js"
+      onerror="
+        console.warn('QiMessaging not detected. Local mock sandbox ready.')
+      "
+    ></script>
+    <script>
+      let hintsUsed = 0;
+
+      function triggerHint() {
+        if (hintsUsed < 2) {
+          hintsUsed++;
+          document.getElementById("hint-counter").textContent = hintsUsed;
+
+          // Alert backend framework to speak/act out the corresponding hint index
+          sendAction("hint");
+
+          if (hintsUsed >= 2) {
+            const hintBtn = document.getElementById("hint-button");
+            hintBtn.disabled = true;
+            hintBtn.textContent = "No More Hints Available";
+          }
+        }
+      }
+
+      function sendAction(act) {
+        const payload = { action: act };
+        console.log("Transmitting state update:", payload);
+
+        if (typeof QiSession === "undefined") {
+          fetch("/tablet_input_mock", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          }).catch((err) => console.error("Mock fetch routing error:", err));
+        } else {
+          try {
+            var session = new QiSession();
+            session.service("TabletInput").then(function (svc) {
+              svc.notify(JSON.stringify(payload));
+            });
+          } catch (e) {
+            console.error("Hardware runtime connection dropped:", e);
+          }
+        }
+      }
+    </script>
+  </body>
+</html>

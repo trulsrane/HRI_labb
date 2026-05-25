@@ -514,7 +514,6 @@ def game_round(tts, stt, leds, problem, dashboard_url: str, tablet: object, anim
         elif any(kw in text for kw in FINISHED_KEYWORDS):
             _slog("user_finished", detail=f"hints_used={hint_index}")
 
-            # Clean and safe: No more URL parameter building here!
             tablet.show_webview(_build_tablet_url(dashboard_url, "solution2.html", "", on_robot))
 
             _sphase("solution_check")

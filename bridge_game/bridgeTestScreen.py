@@ -477,6 +477,7 @@ def game_round(tts, stt, leds, problem, dashboard_url: str, tablet: object, anim
     silent_count = 0
 
     while True:
+        tablet.show_webview(_build_tablet_url(dashboard_url, "hint.html", "", on_robot))
         stt.register_and_subscribe()
         _listen_begin()
         
@@ -535,9 +536,9 @@ def give_hint(tts, problem, index, tablet=None, dashboard_url="", on_robot=False
     hints = problem["hints"]
     if index < len(hints):
         _slog("hint_given", detail=f"index={index}")
-        if tablet:
-            params = "hint={}".format(hints[index])
-            tablet.show_webview(_build_tablet_url(dashboard_url, "hint.html", params, on_robot))
+        #if tablet:
+        #    params = "hint={}".format(hints[index])
+        #    tablet.show_webview(_build_tablet_url(dashboard_url, "hint.html", params, on_robot))
     else:
         _slog("hint_exhausted", detail=f"index={index}")
         tts.speak(GAME_HINTS_DONE, animated=True)

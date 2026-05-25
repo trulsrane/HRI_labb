@@ -1,0 +1,19 @@
+sep=,
+ts,kind,phase,event_type,role,text,detail,duration_ms
+2026-05-25 14:25:51,event,,scenario_meta,,,,
+2026-05-25 14:26:07,event,setup,phase_start,,,,
+2026-05-25 14:26:07,event,setup,scenario_start,,,on_robot=True,
+2026-05-25 14:26:09,event,await_person,phase_start,,,,
+2026-05-25 14:26:11,event,await_person,person_detected,,,,
+2026-05-25 14:26:12,event,greeting,phase_start,,,,
+2026-05-25 14:26:30,event,greeting,stt_listen_start,,,,
+2026-05-25 14:26:36,event,greeting,tablet_heard,,,play,6607
+2026-05-25 14:26:36,event,greeting,classified,,,result=yes,
+2026-05-25 14:26:36,dialog,greeting,,tablet_touch,play,,
+2026-05-25 14:26:37,event,rules,phase_start,,,,
+2026-05-25 14:27:05,event,rules,stt_listen_start,,,,
+2026-05-25 14:27:06,event,rules,tablet_heard,,,explain,1606
+2026-05-25 14:27:06,event,rules,classified,,,result=repeat,
+2026-05-25 14:27:06,dialog,rules,,tablet_touch,explain,,
+2026-05-25 14:27:33,event,rules,stt_listen_start,,,,
+2026-05-25 14:27:52,event,rules,interrupted,,,,

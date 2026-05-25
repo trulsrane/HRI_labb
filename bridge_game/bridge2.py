@@ -1,7 +1,48 @@
 #!/usr/bin/env python
 # =============================================================================
-#  HRI_lab_Pepper — Bridge Scenario (Touch-Input Verified)
+#  HRI_lab_Pepper — Bridge Scenario
 # =============================================================================
+"""
+Multi-modal demo that chains:
+  0. Person detection — Pepper waits until someone stands in front of it.
+  1. Greeting         — Pepper introduces herself and asks if the user wants to play.
+  2. Rules            — Pepper explains the puzzle and listens for 'ready' / 'explain'.
+  3. Level selection  — Pepper asks which level to play, checks STT for keywords.
+  4. Board setup      — User mirrors the starting position; Pepper waits for 'done'.
+  5. Solving          — User builds the path; hints are offered on request or silence.
+  6. Solution check   — Pepper reveals her solution and asks if it matches the user's.
+  7. Celebrate & end  — Same → Phase 7A; Different → Phase 7B; both end the session.
+
+Usage
+-----
+    # Start the dashboard first in another terminal:
+    python -m HRI_lab_Pepper.dashboard --url tcp://ROBOT_IP:9559
+
+    # Then run this script (study run on the robot):
+    python bridge_game/bridge.py --url tcp://ROBOT_IP:9559 \
+        --participant P01 --condition voice [--port 8080]
+
+    # Or run without a live robot (dry-run mode):
+    python bridge_game/bridge.py --dry-run --participant TEST --condition voice
+
+Study logging
+-------------
+    --participant ID    Required-ish label for the user-study run (default: 'anon').
+    --condition voice|text   Which condition this run is. Recorded in the log.
+    --log-dir PATH      Where to write logs (default: bridge_game/logs/).
+
+    Each run produces:
+      logs/study.db                                  — cumulative SQLite (all runs)
+      logs/{participant}_{condition}_{ts}.csv        — per-run merged CSV
+                                                       (events + dialog turns, ts-sorted)
+
+    The CSV is exported automatically on normal exit OR on Ctrl+C. If the
+    process dies hard, the SQLite rows are still safe — re-export with
+    DialogDB.get_session(sid) / get_events().
+
+    Excel: the CSV starts with a 'sep=,' hint so double-click works on
+    non-US locales. For pandas/R, use skiprows=1 / skip=1.
+"""
 
 import argparse
 import csv
@@ -46,7 +87,7 @@ GREETINGS = (
 )
 
 READY_QUESTION = (
-    "Would you like to play with me? Press the screen if you would like to play!"
+    "Would you like to play with me? Just say yes if you'd like to!"
 )
 
 ON_DENY = (
@@ -61,10 +102,10 @@ RULES_BODY_1  = (
 )
 RULES_BODY_2  = (
     "They can walk along flat surfaces and up or down stairs — but they can't jump or "
-    "climb straight walls."
+    "climb straight walls. Take a look at my tablet while I explain."
 )
 RULES_PROMPT  = (
-    "- Got it? Press ready if you are ready or Explain if you would like to hear the rules again."
+    "- Got it? Say 'ready' when you want to start, or 'explain' if you'd like to hear that again."
 )
 RULES_FALLBACK = (
     "If you're unsure, let's just try the starter level and you'll pick it up as we go!"
@@ -72,17 +113,19 @@ RULES_FALLBACK = (
 
 # ── Phase 3 — Level Selection ─────────────────────────────────────────────────
 LEVEL_INTRO = (
-    "Great! We will play this level, and I want you to help me solve it!"
+    "Great! - There are four difficulty levels — Starter, Junior, Expert, and Master. "
+    "If this is your first time, I'd recommend Starter. Which level would you like?"
 )
+LEVEL_FALLBACK = "I didn't catch that — I'll start us on Starter."
 
 # ── Phase 4 — Board Setup ─────────────────────────────────────────────────────
 SETUP_INTRO = (
     "Before we start building, we need to set up the starting position. Take a look at "
-    "my tablet — place the towers and the pick out the blocks exactly like the image."
+    "my tablet — place the towers and figurines exactly like the image."
 )
-SETUP_PROMPT = "Let me know when it matches the picture by pressing the ready button."
+SETUP_PROMPT = "Let me know when it matches the picture by saying 'finished'."
 SETUP_NUDGE  = (
-    "Take your time! I'm showing the starting position on my tablet. Press ready when the "
+    "Take your time! I'm showing the starting position on my tablet. Say 'finished' when the "
     "towers match the picture."
 )
 SETUP_OK     = "Perfect! The stage is set."
@@ -93,10 +136,10 @@ GAME_INTRO = (
     "Remember — they can walk on flat surfaces and stairs, but they can't jump."
 )
 GAME_PROMPT = (
-    "If you get stuck, just press 'hint' on the tablet and I'll give you a clue. Press 'finished' when "
+    "If you get stuck, just say 'hint' and I'll give you a clue. Say 'finished' when "
     "you think they can reach each other."
 )
-GAME_SILENT_HINT = "You've been quiet for a while — let me give you a small clue." 
+GAME_SILENT_HINT = "You've been quiet for a while — let me give you a small clue."
 GAME_HINTS_DONE  = "That's all the hints I've got — you're almost there, I can feel it!"
 
 # ── Phase 6 — Solution Check ──────────────────────────────────────────────────
@@ -115,7 +158,7 @@ CELEBRATE_UNIQUE = (
 END_SESSION = "Come back anytime — I've got 48 puzzles to work through and I could use the help."
 
 # ── Keyword master list ───────────────────────────────────────────────────────
-CONFIRM_KEYWORDS    = ("yes", "yeah", "yep", "sure", "okay", "ok", "go", "play")
+CONFIRM_KEYWORDS    = ("yes", "yeah", "yep", "sure", "okay", "ok", "go")
 DENY_KEYWORDS       = ("no", "nope", "not really", "no thanks")
 READY_KEYWORDS      = ("ready", "yes", "yeah", "start", "go", "let's go")
 REPEAT_KEYWORDS     = ("again", "explain", "repeat", "what")
@@ -146,7 +189,7 @@ _DB = None
 _SESSION_ID = None
 _RUN_LABEL = None
 _PHASE = "init"
-_LISTEN_START = None
+_LISTEN_START = None  # monotonic timestamp when the current stt.listen() began
 
 
 def _init_study_log(participant: str, condition: str, log_dir: Path):
@@ -185,23 +228,26 @@ def _sphase(phase: str):
 
 
 def _listen_begin():
+    """Mark the start of an stt.listen() call so we can measure response latency."""
     global _LISTEN_START
     _LISTEN_START = time.monotonic()
     _slog("stt_listen_start")
 
 
 def _listen_end(transcript):
+    """Log the transcript (or silence) and the latency since _listen_begin()."""
     global _LISTEN_START
     dur = None
     if _LISTEN_START is not None:
         dur = (time.monotonic() - _LISTEN_START) * 1000
         _LISTEN_START = None
     if transcript:
+        # Record the user utterance as a real dialog turn AND as an event.
         if _DB is not None:
-            _DB.log("tablet_touch", str(transcript), session_id=_SESSION_ID, phase=_PHASE)
-        _slog("tablet_heard", detail=str(transcript), duration_ms=dur)
+            _DB.log("user", str(transcript), session_id=_SESSION_ID, phase=_PHASE)
+        _slog("stt_heard", detail=str(transcript), duration_ms=dur)
     else:
-        _slog("tablet_silence", duration_ms=dur)
+        _slog("stt_silence", duration_ms=dur)
 
 
 def _close_study_log(log_dir: Path):
@@ -246,7 +292,7 @@ def _export_run_to_csv(db: "DialogDB", session_id: int, csv_path: Path):
         })
     rows.sort(key=lambda r: r["ts"])
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
-        f.write("sep=,\n")
+        f.write("sep=,\n")  # Excel directive: forces comma delimiter on non-US locales
         writer = csv.DictWriter(f, fieldnames=[
             "ts", "kind", "phase", "event_type", "role", "text", "detail", "duration_ms"
         ])
@@ -258,6 +304,7 @@ def _export_run_to_csv(db: "DialogDB", session_id: int, csv_path: Path):
 #  Tablet input queue
 # ──────────────────────────────────────────────────────────────────────────────
 
+# Single-item queue: ALMemory subscriber puts here; _wait_for_menu_choice reads.
 _choice_queue: queue.Queue = queue.Queue()
 
 
@@ -267,6 +314,12 @@ def _wait_for_person(
     timeout: float = 120.0,
     check_interval: float = 0.5,
 ) -> bool:
+    """
+    Block until at least one person is detected in the camera frame,
+    or *timeout* seconds elapse.
+
+    Returns True if a person was found, False on timeout.
+    """
     _log("Waiting for a person to appear…")
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -285,49 +338,92 @@ def _wait_for_confirmation(
     stt: "SpeechToText",
     keywords: tuple = CONFIRM_KEYWORDS,
 ) -> bool:
-    """Blocks and reads from the tablet event queue instead of STT audio stream."""
-    _log(f"Listening for tablet confirmation (keywords: {keywords}) …")
+    """
+    Listen for a yes-like utterance.
+    Returns True if a matching keyword was heard.
+    """
+    _log(f"Listening for confirmation (keywords: {keywords}) …")
     _listen_begin()
-    
-    try:
-        t_input = _choice_queue.get(block=True)
-        if isinstance(t_input, dict):
-            transcript = t_input.get("action", t_input.get("text", ""))
-        else:
-            transcript = str(t_input)
-    except Exception:
-        transcript = ""
-
+    transcript = stt.listen()
     _listen_end(transcript)
     if not transcript:
-        _log("No screen input received.")
+        _log("No speech heard.")
         return False
-        
-    _log(f"Received screen input: '{transcript}'")
-    matched = any(kw in str(transcript).lower() for kw in keywords)
+    _log(f"Heard: '{transcript}'")
+    matched = any(kw in transcript.lower() for kw in keywords)
     _slog("classified", detail=f"confirm={matched}")
     return matched
 
-def _classify_response(stt: "SpeechToText", *categories):
-    """Blocks and maps tablet payloads into keyword evaluation workflows."""
-    _listen_begin()
+
+def _wait_for_level_select(
+    stt: "SpeechToText",
+    keywords_1: tuple = STARTER_KEYWORDS,
+    keywords_2: tuple = JUNIOR_KEYWORDS,
+    keywords_3: tuple = EXPERT_KEYWORDS,
+    keywords_4: tuple = MASTER_KEYWORDS,
+) -> int:
+    """
+    Listen for keywords associated with a specific level or input on touchscreen.
+    Returns the level number of the matched keyword, and 0 if keyword doesnt match.
+    returns -1 if no speech is heard in time.
+    """
+    _log(f"Listening for confirmation (keywords: {keywords_1, keywords_2, keywords_3, keywords_4}) or touchscreen input…")
+    # Check for touchscreen input during intro
     try:
-        t_input = _choice_queue.get(block=True)
-        if isinstance(t_input, dict):
-            transcript = t_input.get("action", t_input.get("text", ""))
-        else:
-            transcript = str(t_input)
-    except Exception:
-        transcript = ""
-        
+        t_input = _choice_queue.get_nowait()
+        _log(f"Tablet input received before listening: {t_input}")
+        idx = int(t_input.get("index")) + 1
+        _slog("level_selected", detail=f"level={idx},source=tablet_pre")
+        return idx
+    except (queue.Empty, ValueError, TypeError):
+        pass
+
+    # Check voice input
+    _listen_begin()
+    transcript = stt.listen()
+    _listen_end(transcript)
+
+    # Check tablet input during session
+    if not _choice_queue.empty():
+        try:
+            t_input = _choice_queue.get_nowait()
+            _log(f"Tablet input received during/after listening: {t_input}")
+            idx = int(t_input.get("index")) + 1
+            _slog("level_selected", detail=f"level={idx},source=tablet_post")
+            return idx
+        except (queue.Empty, ValueError, TypeError):
+            pass
+
+    if not transcript:
+        _log("No speech heard.")
+        return -1
+
+    # Process voice transcript
+    _log(f"Heard: '{transcript}'")
+    text = transcript.lower()
+    for lvl, kws in ((1, keywords_1), (2, keywords_2), (3, keywords_3), (4, keywords_4)):
+        if any(kw in text for kw in kws):
+            _slog("level_selected", detail=f"level={lvl},source=voice")
+            return lvl
+
+    _slog("classified", detail="level=unrecognized")
+    return 0
+    
+def _classify_response(stt: "SpeechToText", *categories):
+    """
+    Listen once and classify the transcript into one of several keyword categories.
+    *categories* is a sequence of (label, keywords) tuples — checked in order.
+    Returns the label of the first matching category, or None on silence / no match.
+    """
+    _listen_begin()
+    transcript = stt.listen()
     _listen_end(transcript)
     if not transcript:
-        _log("No screen input heard.")
+        _log("No speech heard.")
         _slog("classified", detail="result=silence")
         return None
-        
-    _log(f"Received touch input: '{transcript}'")
-    text = str(transcript).lower()
+    _log(f"Heard: '{transcript}'")
+    text = transcript.lower()
     for label, keywords in categories:
         if any(kw in text for kw in keywords):
             _slog("classified", detail=f"result={label}")
@@ -337,6 +433,11 @@ def _classify_response(stt: "SpeechToText", *categories):
 
 
 def _explain_rules(tts: "TextToSpeech", stt: "SpeechToText") -> None:
+    """
+    Phase 2 — Rules Explanation.
+    Speaks the rules, listens for ready/repeat, loops at most once on 'repeat'.
+    Falls through to Phase 3 on silence or after a single repeat.
+    """
     for attempt in range(2):
         tts.speak(RULES_INTRO, animated=True)
         time.sleep(0.5)
@@ -357,11 +458,12 @@ def _explain_rules(tts: "TextToSpeech", stt: "SpeechToText") -> None:
             return
         if response == "repeat":
             if attempt == 0:
-                continue
+                continue  # repeat the rules once
             tts.speak(RULES_FALLBACK, animated=True)
             return
 
-        tts.speak("Please press ready on the screen when you want to start.", animated=True)
+        # silence / not understood — re-prompt and listen once more
+        tts.speak("Just say 'ready' when you want to start.", animated=True)
         stt.register_and_subscribe()
         response = _classify_response(
             stt,
@@ -371,10 +473,16 @@ def _explain_rules(tts: "TextToSpeech", stt: "SpeechToText") -> None:
         stt.unsubscribe()
         if response == "repeat" and attempt == 0:
             continue
+        # ready, silence again, or repeat-after-repeat → proceed to Phase 3
         return
 
 
 def _wait_for_setup_done(tts: "TextToSpeech", stt: "SpeechToText") -> None:
+    """
+    Phase 4 — Board Setup.
+    Asks the user to set up the towers + figurines, waits for 'done'.
+    Re-explains once on help / two silences, then proceeds regardless.
+    """
     tts.speak(SETUP_INTRO, animated=True)
     time.sleep(0.5)
     tts.speak(SETUP_PROMPT, animated=True)
@@ -404,10 +512,12 @@ def _wait_for_setup_done(tts: "TextToSpeech", stt: "SpeechToText") -> None:
             tts.speak(SETUP_PROMPT, animated=True)
             continue
 
+        # silence / not understood
         silent_count += 1
         if silent_count == 1:
             tts.speak(SETUP_NUDGE, animated=True)
             continue
+        # 2nd silence — try once more after re-explaining, then give up
         if not re_explained:
             re_explained = True
             silent_count = 0
@@ -419,11 +529,13 @@ def _wait_for_setup_done(tts: "TextToSpeech", stt: "SpeechToText") -> None:
 
 
 def _led(leds: object, preset: str) -> None:
+    """Dispatch a preset name string to the matching RobotLEDs method."""
     fn = getattr(leds, preset, None) or getattr(leds, "off")
     fn()
 
 
 def _build_tablet_url(base_url: str, page: str, params: str, on_robot: bool = False) -> str:
+    """Build a tablet URL — uses the robot-internal bridge when on_robot=True."""
     if on_robot:
         url = f"{_TABLET_ROBOT_BASE}/{page}"
     else:
@@ -432,13 +544,19 @@ def _build_tablet_url(base_url: str, page: str, params: str, on_robot: bool = Fa
         url += f"?{params}"
     return url
 
-def present_problem(tts, stt, dashboard_url: str, tablet: object, on_robot: bool = False):
+def present_problem(tts, stt, dashboard_url: str,
+    tablet: object, on_robot: bool = False):
+    """Phase 5 intro — speak the gameplay instructions."""
     tts.speak(GAME_INTRO, animated=True)
     time.sleep(0.5)
     tts.speak(GAME_PROMPT, animated=True)
 
 
 def compare_solution(tts, stt):
+    """
+    Phase 6 — Solution Check.
+    Returns True on 'same' (→ 7A), False on 'different' or repeated silence (→ 7B).
+    """
     tts.speak(SOLUTION_REVEAL, animated=True)
     time.sleep(1.0)
     tts.speak(SOLUTION_QUERY, animated=True)
@@ -456,6 +574,7 @@ def compare_solution(tts, stt):
     if response == "diff":
         return False
 
+    # silence / not understood — re-ask once
     tts.speak(SOLUTION_REPROMPT, animated=True)
     stt.register_and_subscribe()
     response = _classify_response(
@@ -467,28 +586,25 @@ def compare_solution(tts, stt):
 
     if response == "match":
         return True
+    # diff or silence again → Phase 7B
     return False
 
 
-def game_round(tts, stt, leds, problem, dashboard_url: str, tablet: object, anim, level, on_robot):
+def game_round(tts, stt, leds, problem, dashboard_url: str,
+    tablet: object, anim, level, on_robot):
+    """
+    Phase 5 — Solving game loop.
+    On 'finished', runs Phase 6 then Phase 7A or 7B.
+    """
     _log("trying to present problem:")
-    present_problem(tts, stt, dashboard_url=dashboard_url, tablet=tablet, on_robot=on_robot)
+    present_problem(tts, stt, dashboard_url=dashboard_url, tablet=tablet)
     hint_index = 0
     silent_count = 0
 
     while True:
         stt.register_and_subscribe()
         _listen_begin()
-        
-        try:
-            t_input = _choice_queue.get(block=True)
-            if isinstance(t_input, dict):
-                heard = t_input.get("action", t_input.get("text", ""))
-            else:
-                heard = str(t_input)
-        except Exception:
-            heard = ""
-            
+        heard = stt.listen()
         _listen_end(heard)
         stt.unsubscribe()
 
@@ -496,30 +612,43 @@ def game_round(tts, stt, leds, problem, dashboard_url: str, tablet: object, anim
             silent_count += 1
             if silent_count >= 2:
                 _slog("silent_hint_trigger", detail=f"silent_count={silent_count}")
-                tts.speak("Look at my screen for the hint.", animated=True)
-                give_hint(tts, problem, hint_index, tablet, dashboard_url, on_robot)
+                tts.speak(GAME_SILENT_HINT, animated=True)
+                give_hint(tts, problem, hint_index)
                 hint_index += 1
                 silent_count = 0
             continue
 
         silent_count = 0
-        text = str(heard).lower()
+        text = heard.lower()
 
         if any(kw in text for kw in HINT_KEYWORDS):
             _slog("hint_request")
-            tts.speak("Look at my screen for the hint.", animated=True)
-            give_hint(tts, problem, hint_index, tablet, dashboard_url, on_robot)
+            give_hint(tts, problem, hint_index)
             hint_index += 1
 
         elif any(kw in text for kw in FINISHED_KEYWORDS):
             _slog("user_finished", detail=f"hints_used={hint_index}")
 
-            tablet.show_webview(_build_tablet_url(dashboard_url, "solution2.html", "", on_robot))
+            # Phase 6 — Solution Check
+            level_names = ["Starter", "Junior", "Expert", "Master"]
+            level_img = [
+                "https://people.cs.umu.se/~id23sem/bridgegame_img/Beginner_sol.jpg",
+                "https://people.cs.umu.se/~id23sem/bridgegame_img/Medium_sol.jpg",
+                "https://people.cs.umu.se/~id23sem/bridgegame_img/Hard_sol.jpg",
+                "https://people.cs.umu.se/~id23sem/bridgegame_img/Master_sol.jpg"
+            ]
+            selected_name_sol = level_names[level-1]
+            selected_img_sol = level_img[level-1]
+
+            # Build the parameters for picked level page
+            params = "label={}&img={}".format(selected_name_sol, selected_img_sol)
+            tablet.show_webview(_build_tablet_url(dashboard_url, "solution.html", params, on_robot))
 
             _sphase("solution_check")
             same = compare_solution(tts, stt)
             _slog("solution_compared", detail=f"matched={same}")
 
+            # Phase 7 — Celebrate (both paths end the session)
             _sphase("celebrate")
             if same:
                 celebrate_same(tts, leds, anim)
@@ -528,22 +657,21 @@ def game_round(tts, stt, leds, problem, dashboard_url: str, tablet: object, anim
             return
 
         else:
-            tts.speak("Press 'hint' for help, or 'finished' when ready.", animated=True)
+            tts.speak("Say 'hint' for help, or 'finished' when ready.", animated=True)
 
 
-def give_hint(tts, problem, index, tablet=None, dashboard_url="", on_robot=False):
+def give_hint(tts, problem, index):
     hints = problem["hints"]
     if index < len(hints):
         _slog("hint_given", detail=f"index={index}")
-        if tablet:
-            params = "hint={}".format(hints[index])
-            tablet.show_webview(_build_tablet_url(dashboard_url, "hint.html", params, on_robot))
+        tts.speak(f"Here's a hint. {hints[index]}", animated=True)
     else:
         _slog("hint_exhausted", detail=f"index={index}")
         tts.speak(GAME_HINTS_DONE, animated=True)
 
 
 def celebrate_same(tts, leds, anim):
+    """Phase 7A — User's solution matches Pepper's."""
     _slog("outcome", detail="same")
     leds.happy()
     tts.speak(CELEBRATE_SAME_1, animated=True)
@@ -552,6 +680,7 @@ def celebrate_same(tts, leds, anim):
 
 
 def celebrate_unique(tts, leds, anim):
+    """Phase 7B — User's solution differs, but is still valid."""
     _slog("outcome", detail="unique")
     leds.happy()
     tts.speak(CELEBRATE_UNIQUE, animated=True)
@@ -560,28 +689,58 @@ def celebrate_unique(tts, leds, anim):
 
 
 def end_session(tts, anim, tablet, leds):
+    """End the session with a goodbye message."""
     tts.speak(END_SESSION, animated=True)
     anim.run_async("animations/Stand/Gestures/BowShort_1")
+
     time.sleep(2.0)
+
     tablet.hide()
     _led(leds, "off")
     _log("Demo complete.")
     return
 
 class BridgeGame:
-    LEVEL = {
-        "id": "junior",
-        "description": "Junior level: Build a bridge with 3 blocks, but one block is missing!",
-        "hints": [
-            "You can use the two blocks to create a sloped bridge.",
-            "Try placing one block on the left and one on the right, then balance the third block on top to connect them!",
-        ],
-        "solution_keywords": ["yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go"],
-    }
-
-    def get_problem(self, level=None):
-        # Only one level in the screen-only study; ignore the argument.
-        return self.LEVEL
+    #TODO move this to a json? perhaps
+    PROBLEMS = [
+        {
+            "id": "starter",
+            "description": "Starter level: Build a simple bridge with 2 blocks.",
+            "hints": [
+                "Try placing one block on the left and one on the right, leaving a gap in the middle.",
+                "Make sure the blocks are close enough to each other to connect!",
+            ],
+            "solution_keywords": ["yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go"]
+        },
+        {
+            "id": "junior",
+            "description": "Junior level: Build a bridge with 3 blocks, but one block is missing!",
+            "hints": [
+                "You can use the two blocks to create a sloped bridge.",
+                "Try placing one block on the left and one on the right, then balance the third block on top to connect them!",
+            ],
+            "solution_keywords": ["yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go"]
+        },
+        {
+            "id": "expert",
+            "description": "Expert level: Build a bridge with 4 blocks, but two blocks are missing!",
+            "hints": [
+                "You can create a zig-zag pattern to connect the pieces.",
+                "Try placing two blocks on the left and two on the right, then balance the remaining blocks on top to connect them!",
+            ],
+            "solution_keywords": ["yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go"]
+        },
+        {
+            "id": "master",
+            "description": "Master level: Build a bridge with 5 blocks, but three blocks are missing!",
+            "hints": [
+                "This one is tricky! You will need to create a more complex structure to connect all the pieces.",
+                "Try placing three blocks on the left and two on the right, then balance the remaining blocks on top to connect them all together!",
+            ],
+            "solution_keywords": ["yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go"]
+        }
+    ]
+    def get_problem(self, level): return self.PROBLEMS[level-1]
 
     def check_solution(self, answer, problem):
         if not answer:
@@ -592,7 +751,99 @@ class BridgeGame:
         return matches >= 1
 
 def _run_tests():
-    print("Touch verification active. Passing automated stub layout tests.")
+    game = BridgeGame()
+
+    # get_problem returns the right level
+    assert game.get_problem(1)["id"] == "starter"
+    assert game.get_problem(4)["id"] == "master"
+    print("  get_problem      OK")
+
+    # check_solution: keyword matching
+    p1 = game.get_problem(1)
+    assert game.check_solution("yes", p1)         # pass
+    assert not game.check_solution("no clue", p1)            # no keywords → fail
+    assert not game.check_solution(None, p1)                  # None → fail
+    p3 = game.get_problem(3)
+    assert game.check_solution("yep", p3)    # pass
+    assert not game.check_solution("no", p3)       # fail
+    print("  check_solution   OK")
+
+    # _wait_for_confirmation keyword matching
+    class _Fake:
+        def __init__(self, t): self._t = t
+        def listen(self): return self._t
+    assert _wait_for_confirmation(_Fake("yes"))
+    assert not _wait_for_confirmation(_Fake("nope"))
+    assert not _wait_for_confirmation(_Fake(None))
+    print("  confirmation     OK")
+
+    # _wait_for_level_select keyword matching
+    assert _wait_for_level_select(_Fake("green"))   == 1
+    assert _wait_for_level_select(_Fake("junior"))  == 2
+    assert _wait_for_level_select(_Fake("3"))       == 3
+    assert _wait_for_level_select(_Fake("master"))  == 4
+    assert _wait_for_level_select(_Fake("banana"))  == 0
+    print("  level select     OK")
+
+    print("All tests passed.")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Dry-run mode  (no real robot)
+# ──────────────────────────────────────────────────────────────────────────────
+
+class _FakeTTS:
+    def speak(self, text, animated=True): _log(f"[TTS] {text}")
+    def set_volume(self, v): pass
+    def set_speed(self, s): pass
+
+class _FakeSTT:
+    def register_and_subscribe(self): pass
+    def listen(self): time.sleep(1); return "yes"
+    def unsubscribe(self): pass
+
+class _FakeCamera:
+    def get_frame(self):
+        import numpy as np
+        return np.zeros((240, 320, 3), dtype="uint8")
+    def start(self): _log("[CAMERA] Started")
+    def stop(self): _log("[CAMERA] Stopped")
+
+class _FakeDetector:
+    def detect(self, frame): return [{"bbox": [0,0,1,1], "confidence": 0.9}]
+
+class _FakeTablet:
+    def __init__(self, dashboard_url: str):
+        self._dashboard_url = dashboard_url
+    def show_webview(self, url):
+        _log(f"[TABLET] show: {url}")
+        # Simulate a card tap 2 s after the menu page is shown
+        if "menu_demo" in url:
+            def _inject():
+                time.sleep(2.0)
+                _choice_queue.put({"action": "card_choice", "value": "Joke", "index": 1})
+                _log("[FAKE] Injected card_choice: Joke")
+            threading.Thread(target=_inject, daemon=True).start()
+    def hide(self): _log("[TABLET] hide")
+
+class _FakeAnim:
+    def run_async(self, path): _log(f"[ANIM] {path}")
+
+class _FakePosture:
+    def stand(self, speed=None): pass
+    def stand_init(self): pass
+
+class _FakeLEDs:
+    def happy(self):    _log("[LED] happy")
+    def thinking(self): _log("[LED] thinking")
+    def sad(self):      _log("[LED] sad")
+    def error(self):    _log("[LED] error")
+    def off(self):      _log("[LED] off")
+
+class _FakeAwareness:
+    def start(self): pass
+    def stop(self): pass
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 #  Main scenario
@@ -607,33 +858,36 @@ def run_scenario(
     anim: object,
     posture: object,
     leds: object,
-    #awareness: object,
+    awareness: object,
     session: object,
     dashboard_url: str,
     on_robot: bool = False,
 ) -> None:
-    """Execute the full demo scenario matching the original code shape exactly."""
+    """Execute the full demo scenario."""
 
     # ── 0. Setup ────────────────────────────────────────────────────────
     _sphase("setup")
     _slog("scenario_start", detail=f"on_robot={on_robot}")
     _log("Setting up robot…")
     posture.stand()
+    # awareness.start()
     camera.start()
     time.sleep(1.0)
 
+    # setup the speech volume and speed
     tts.set_volume(50)
     tts.set_speed(100)
 
     # ── 1. Wait for a person ────────────────────────────────────────────
     _sphase("await_person")
-    found = _wait_for_person(camera, detector, timeout=120.0)
+    found = _wait_for_person(camera, detector, timeout=120.0) #Fastnar här ibland och måste starta om roboten
     if not found:
         _slog("person_timeout")
         _log("Nobody showed up. Ending demo.")
         return
     _slog("person_detected")
 
+    #Blink LEDs to signal detection
     _led(leds, "happy")
 
     # ── 2. Phase 1 — Greet & ask to play ────────────────────────────────
@@ -643,8 +897,8 @@ def run_scenario(
     tts.speak(GREETINGS, animated=True)
     time.sleep(0.5)
 
-    # Show and run startGame
-    tablet.show_webview(_build_tablet_url(dashboard_url, "startGame.html", "", on_robot))
+    # Show listening page on tablet
+    tablet.show_webview(_build_tablet_url(dashboard_url, "listening.html", "prompt=Listening...", on_robot))
     _led(leds, "thinking")
 
     tts.speak(READY_QUESTION, animated=True)
@@ -664,8 +918,9 @@ def run_scenario(
         return
 
     if response is None:
+        # Silence / not understood — re-ask once
         _slog("reprompt", detail="greeting")
-        tts.speak("Please press the screen if you would like to play!", animated=True)
+        tts.speak("I didn't catch that — just say yes if you'd like to play!", animated=True)
         stt.register_and_subscribe()
         response = _classify_response(
             stt,
@@ -681,7 +936,6 @@ def run_scenario(
 
     # ── 3. Phase 2 — Rules Explanation ──────────────────────────────────
     _sphase("rules")
-    tablet.show_webview(_build_tablet_url(dashboard_url, "rules.html", "", on_robot))
     _explain_rules(tts, stt)
 
     # ──────────────────────────────────────────────────────────────────────────────
@@ -690,19 +944,42 @@ def run_scenario(
     _sphase("level_select")
     _led(leds, "happy")
 
-    level_name = "Junior"
-    level_img = "https://people.cs.umu.se/~id23sem/bridgegame_img/Medium.jpg"
+    tablet.show_webview(_build_tablet_url(dashboard_url, "levels.html", "", on_robot))
+    tts.speak(LEVEL_INTRO, animated=True)
 
-    tts.speak(f"Let's set up level {level_name}.", animated=True)
+    stt.register_and_subscribe()
+    level = 0
+    while level <= 0:
+        level = _wait_for_level_select(stt)
+        if level <= 0:
+            _slog("reprompt", detail="level_select")
+            tts.speak("Sorry, I didn't catch that. Please say Starter, Junior, Expert, or Master.", animated=True)
+    stt.unsubscribe()
 
-    params = "label={}&img={}".format(level_name, level_img)
-    tablet.show_webview(_build_tablet_url(dashboard_url, "levelMedium.html", params, on_robot))
+    # Switch to pickedLevel.html
+    level_names = ["Starter", "Junior", "Expert", "Master"]
+    level_imgs = [
+        "https://people.cs.umu.se/~id23sem/bridgegame_img/Beginner.jpg",
+        "https://people.cs.umu.se/~id23sem/bridgegame_img/Medium.jpg",
+        "https://people.cs.umu.se/~id23sem/bridgegame_img/Hard.jpg",
+        "https://people.cs.umu.se/~id23sem/bridgegame_img/Master.jpg"
+    ]
+
+    selected_name = level_names[level-1]
+    selected_img = level_imgs[level-1]
+
+    tts.speak(f"Good choice! Let's set up level {selected_name}.", animated=True)
+
+    # Build the parameters for picked level page
+    params = "label={}&img={}".format(selected_name, selected_img)
+    tablet.show_webview(_build_tablet_url(dashboard_url, "pickedLevel.html", params, on_robot))
 
     if session:
         memory = session.service("ALMemory")
-        memory.raiseEvent("BridgeGame/LevelSelected", level_name)
+       # subtract 1 because Python levels are 1,2,3,4 but JS arrays are 0,1,2,3
+        memory.raiseEvent("BridgeGame/LevelSelected", level - 1)
 
-    _slog("level_confirmed", detail=f"name={level_name}")
+    _slog("level_confirmed", detail=f"name={selected_name}")
 
     # ──────────────────────────────────────────────────────────────────────────────
     #  5. Phase 4 — Board Setup
@@ -715,10 +992,10 @@ def run_scenario(
     # ──────────────────────────────────────────────────────────────────────────────
     _sphase("solving")
     game = BridgeGame()
-    problem = game.get_problem(level_name)
+    problem = game.get_problem(level)
     _led(leds, "happy")
 
-    game_round(tts, stt, leds, problem, dashboard_url=dashboard_url, tablet=tablet, anim=anim, level=level_name, on_robot=on_robot)
+    game_round(tts, stt, leds, problem, dashboard_url=dashboard_url, tablet=tablet, anim=anim, level=level, on_robot=on_robot)
 
     # ──────────────────────────────────────────────────────────────────────────────
     #  7. End Session
@@ -733,6 +1010,7 @@ def run_scenario(
 # ──────────────────────────────────────────────────────────────────────────────
 
 def main() -> None:
+    # Force UTF-8 stdout so Unicode characters (→, å, etc.) don't crash on Windows cp1252.
     try:
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
@@ -750,24 +1028,38 @@ def main() -> None:
                         help="Run without a real robot (fake drivers)")
     parser.add_argument("--participant", default="anon",
                         help="Participant ID for the study log (e.g. P01)")
-    parser.add_argument("--condition", default="text", choices=["voice", "text"],
-                        help="Study condition label for the log")
+    parser.add_argument("--condition", default="voice", choices=["voice", "text"],
+                        help="Study condition label for the log (default: voice)")
     parser.add_argument("--log-dir", default=None,
-                        help="Directory for per-run CSV logs")
+                        help="Directory for per-run CSV logs (default: <script_dir>/logs)")
     args = parser.parse_args()
 
     if args.test:
         _run_tests()
         return
 
+    # Initialize the study logger (DialogDB-backed; one CSV per run on close).
     log_dir = Path(args.log_dir) if args.log_dir else Path(__file__).resolve().parent / "logs"
     _init_study_log(args.participant, args.condition, log_dir)
 
     if args.dry_run:
-        return
+        _log("=== DRY-RUN MODE (no robot) ===")
+        dashboard_url = f"http://localhost:{args.port}"
+        on_robot  = False
+        tts       = _FakeTTS()
+        stt       = _FakeSTT()
+        camera    = _FakeCamera()
+        detector  = _FakeDetector()
+        tablet    = _FakeTablet(dashboard_url)
+        anim      = _FakeAnim()
+        posture   = _FakePosture()
+        leds      = _FakeLEDs()
+        awareness = _FakeAwareness()
+        session   = None
     else:
         _log(f"Connecting to {args.url} …")
         session   = PepperSession.connect(args.url)
+        #PepperSession.disable_autonomous_life()
         tts       = TextToSpeech(session)
         stt       = SpeechToText(session)
         camera    = PepperCamera(session)
@@ -776,8 +1068,9 @@ def main() -> None:
         anim      = AnimationPlayer(session)
         posture   = RobotPosture(session)
         leds      = RobotLEDs(session)
-        #awareness = BasicAwareness(session)
+        awareness = BasicAwareness(session)
 
+        # Derive dashboard URL reachable by the robot's tablet browser.
         _robot_host = args.url.split("://")[-1].split(":")[0]
         import socket as _socket
         try:
@@ -790,6 +1083,9 @@ def main() -> None:
         dashboard_url = f"http://{_local_ip}:{args.port}"
         _log(f"Dashboard URL: {dashboard_url}")
 
+        # Register a qi service 'TabletInput' with a notify() method.
+        # The tablet JS calls QiSession → service('TabletInput') → notify(json),
+        # routed back through the existing SSH reverse tunnel.
         class _TabletInputSvc:
             def notify(self, json_str):
                 try:
@@ -801,6 +1097,7 @@ def main() -> None:
         session.registerService("TabletInput", _tab_svc)
         _log("Tablet input service ready.")
 
+        # Deploy tablet pages directly to the robot via SSH
         on_robot = deploy_tablet_pages(
             robot_ip=_robot_host,
             src_dir=_TABLET_SRC_DIR,
@@ -818,7 +1115,7 @@ def main() -> None:
             anim=anim,
             posture=posture,
             leds=leds,
-            #awareness=awareness,
+            awareness=awareness,
             dashboard_url=dashboard_url,
             on_robot=on_robot,
             session=session,
@@ -833,10 +1130,11 @@ def main() -> None:
             for fn, label in [
                 (stt.unsubscribe,          "STT unsubscribe"),
                 (camera.stop,              "camera stop"),
-                #(awareness.stop,           "awareness stop"),
+                (awareness.stop,           "awareness stop"),
                 (leds.off,                 "LEDs off"),
                 (tablet.hide,              "tablet hide"),
                 (lambda: posture.stand(speed=0.5), "posture stand"),
+                # (PepperSession.enable_autonomous_life, "autonomous life restore"),
                 (PepperSession.disconnect, "session disconnect"),
             ]:
                 try:

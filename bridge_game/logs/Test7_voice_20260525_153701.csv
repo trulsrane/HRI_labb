@@ -1,0 +1,36 @@
+sep=,
+ts,kind,phase,event_type,role,text,detail,duration_ms
+2026-05-25 15:37:01,event,,scenario_meta,,,,
+2026-05-25 15:37:19,event,setup,phase_start,,,,
+2026-05-25 15:37:19,event,setup,scenario_start,,,on_robot=True,
+2026-05-25 15:37:23,event,await_person,phase_start,,,,
+2026-05-25 15:37:25,event,await_person,person_detected,,,,
+2026-05-25 15:37:28,event,greeting,phase_start,,,,
+2026-05-25 15:37:50,event,greeting,stt_listen_start,,,,
+2026-05-25 15:38:37,event,greeting,tablet_heard,,,play,46671
+2026-05-25 15:38:37,event,greeting,classified,,,result=yes,
+2026-05-25 15:38:37,dialog,greeting,,tablet_touch,play,,
+2026-05-25 15:38:39,event,rules,phase_start,,,,
+2026-05-25 15:39:07,event,rules,stt_listen_start,,,,
+2026-05-25 15:39:09,event,rules,tablet_heard,,,ready,2023
+2026-05-25 15:39:09,event,rules,classified,,,result=ready,
+2026-05-25 15:39:09,dialog,rules,,tablet_touch,ready,,
+2026-05-25 15:39:11,event,level_select,phase_start,,,,
+2026-05-25 15:39:20,event,level_select,level_confirmed,,,name=Junior,
+2026-05-25 15:39:20,event,setup_board,phase_start,,,,
+2026-05-25 15:39:36,event,setup_board,stt_listen_start,,,,
+2026-05-25 15:39:40,event,setup_board,tablet_heard,,,done,3633
+2026-05-25 15:39:40,event,setup_board,classified,,,result=done,
+2026-05-25 15:39:40,dialog,setup_board,,tablet_touch,done,,
+2026-05-25 15:39:45,event,solving,phase_start,,,,
+2026-05-25 15:40:06,event,solving,stt_listen_start,,,,
+2026-05-25 15:40:11,event,solving,tablet_heard,,,finished,4976
+2026-05-25 15:40:11,event,solving,user_finished,,,hints_used=0,
+2026-05-25 15:40:11,dialog,solving,,tablet_touch,finished,,
+2026-05-25 15:40:13,event,solution_check,phase_start,,,,
+2026-05-25 15:40:21,event,solution_check,stt_listen_start,,,,
+2026-05-25 15:40:25,event,solution_check,tablet_heard,,,match,3702
+2026-05-25 15:40:25,event,solution_check,classified,,,result=unmatched,
+2026-05-25 15:40:25,dialog,solution_check,,tablet_touch,match,,
+2026-05-25 15:40:29,event,solution_check,stt_listen_start,,,,
+2026-05-25 15:41:04,event,solution_check,interrupted,,,,

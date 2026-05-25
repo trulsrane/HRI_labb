@@ -1,7 +1,0 @@
-sep=,
-ts,kind,phase,event_type,role,text,detail,duration_ms
-2026-05-25 15:14:46,event,,scenario_meta,,,,
-2026-05-25 15:15:04,event,setup,phase_start,,,,
-2026-05-25 15:15:04,event,setup,scenario_start,,,on_robot=True,
-2026-05-25 15:15:06,event,await_person,phase_start,,,,
-2026-05-25 15:16:07,event,await_person,interrupted,,,,

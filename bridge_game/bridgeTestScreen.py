@@ -498,7 +498,7 @@ def game_round(tts, stt, leds, problem, dashboard_url: str, tablet: object, anim
             if silent_count >= 2:
                 _slog("silent_hint_trigger", detail=f"silent_count={silent_count}")
                 tts.speak("Look at my screen for the hint.", animated=True)
-                give_hint(tts, problem, hint_index, tablet, dashboard_url, on_robot)
+                give_hint(tts, problem, hint_index)
                 hint_index += 1
                 silent_count = 0
             continue
@@ -508,8 +508,7 @@ def game_round(tts, stt, leds, problem, dashboard_url: str, tablet: object, anim
 
         if any(kw in text for kw in HINT_KEYWORDS):
             _slog("hint_request")
-            tts.speak("Look at my screen for the hint.", animated=True)
-            give_hint(tts, problem, hint_index, tablet, dashboard_url, on_robot)
+            give_hint(tts, problem, hint_index)
             hint_index += 1
 
         elif any(kw in text for kw in FINISHED_KEYWORDS):
@@ -532,16 +531,15 @@ def game_round(tts, stt, leds, problem, dashboard_url: str, tablet: object, anim
             tts.speak("Press 'hint' for help, or 'finished' when ready.", animated=True)
 
 
-def give_hint(tts, problem, index, tablet=None, dashboard_url="", on_robot=False):
+def give_hint(tts, problem, index):
     hints = problem["hints"]
     if index < len(hints):
         _slog("hint_given", detail=f"index={index}")
-        #if tablet:
-        #    params = "hint={}".format(hints[index])
-        #    tablet.show_webview(_build_tablet_url(dashboard_url, "hint.html", params, on_robot))
+        tts.speak(f"Here's a hint. {hints[index]}", animated=True)
     else:
         _slog("hint_exhausted", detail=f"index={index}")
         tts.speak(GAME_HINTS_DONE, animated=True)
+
 
 
 def celebrate_same(tts, leds, anim):
@@ -575,7 +573,7 @@ class BridgeGame:
         "description": "Junior level: Build a bridge with 3 blocks, but one block is missing!",
         "hints": [
             "You can use the two blocks to create a sloped bridge.",
-            "Try placing one block on the left and one on the right, then balance the third block on top to connect them!",
+            "Try placing one block on the left and one on the right",
         ],
         "solution_keywords": ["yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go"],
     }

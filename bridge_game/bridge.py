@@ -433,12 +433,7 @@ def _classify_response(stt: "SpeechToText", *categories):
 
 
 def _explain_rules(tts: "TextToSpeech", stt: "SpeechToText") -> None:
-    """
-    Phase 2 — Rules Explanation.
-    Speaks the rules, listens for ready/repeat, loops at most once on 'repeat'.
-    Falls through to Phase 3 on silence or after a single repeat.
-    """
-    for attempt in range(2):
+    while True:
         tts.speak(RULES_INTRO, animated=True)
         time.sleep(0.5)
         tts.speak(RULES_BODY_1, animated=True)
@@ -446,35 +441,24 @@ def _explain_rules(tts: "TextToSpeech", stt: "SpeechToText") -> None:
         tts.speak(RULES_BODY_2, animated=True)
         tts.speak(RULES_PROMPT, animated=True)
 
-        stt.register_and_subscribe()
-        response = _classify_response(
-            stt,
-            ("ready", READY_KEYWORDS),
-            ("repeat", REPEAT_KEYWORDS),
-        )
-        stt.unsubscribe()
+        while True:
+            stt.register_and_subscribe()
+            response = _classify_response(
+                stt,
+                ("ready", READY_KEYWORDS),
+                ("repeat", REPEAT_KEYWORDS),
+            )
+            stt.unsubscribe()
 
-        if response == "ready":
-            return
-        if response == "repeat":
-            if attempt == 0:
-                continue  # repeat the rules once
-            tts.speak(RULES_FALLBACK, animated=True)
-            return
+            if response == "ready":
+                return
+            if response == "repeat":
+                break  # re-explain from the outer loop
 
-        # silence / not understood — re-prompt and listen once more
-        tts.speak("Just say 'ready' when you want to start.", animated=True)
-        stt.register_and_subscribe()
-        response = _classify_response(
-            stt,
-            ("ready", READY_KEYWORDS),
-            ("repeat", REPEAT_KEYWORDS),
-        )
-        stt.unsubscribe()
-        if response == "repeat" and attempt == 0:
-            continue
-        # ready, silence again, or repeat-after-repeat → proceed to Phase 3
-        return
+            tts.speak(
+                "Sorry, I didn't catch that. Say 'ready' to start, or 'explain' to hear the rules again.",
+                animated=True,
+            )
 
 
 def _wait_for_setup_done(tts: "TextToSpeech", stt: "SpeechToText") -> None:

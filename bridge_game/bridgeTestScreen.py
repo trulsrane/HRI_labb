@@ -336,8 +336,9 @@ def _classify_response(stt: "SpeechToText", *categories):
     return None
 
 
-def _explain_rules(tts: "TextToSpeech", stt: "SpeechToText") -> None:
-    for attempt in range(2):
+def _explain_rules(tts, stt, tablet, dashboard_url, on_robot):
+    while True:
+        tablet.show_webview(_build_tablet_url(dashboard_url, "rules.html", "", on_robot))
         tts.speak(RULES_INTRO, animated=True)
         time.sleep(0.5)
         tts.speak(RULES_BODY_1, animated=True)
@@ -345,33 +346,24 @@ def _explain_rules(tts: "TextToSpeech", stt: "SpeechToText") -> None:
         tts.speak(RULES_BODY_2, animated=True)
         tts.speak(RULES_PROMPT, animated=True)
 
-        stt.register_and_subscribe()
-        response = _classify_response(
-            stt,
-            ("ready", READY_KEYWORDS),
-            ("repeat", REPEAT_KEYWORDS),
-        )
-        stt.unsubscribe()
+        while True:
+            stt.register_and_subscribe()
+            response = _classify_response(
+                stt,
+                ("ready", READY_KEYWORDS),
+                ("repeat", REPEAT_KEYWORDS),
+            )
+            stt.unsubscribe()
 
-        if response == "ready":
-            return
-        if response == "repeat":
-            if attempt == 0:
-                continue
-            tts.speak(RULES_FALLBACK, animated=True)
-            return
+            if response == "ready":
+                return
+            if response == "repeat":
+                break  # reload tablet and re-explain from outer loop
 
-        tts.speak("Please press ready on the screen when you want to start.", animated=True)
-        stt.register_and_subscribe()
-        response = _classify_response(
-            stt,
-            ("ready", READY_KEYWORDS),
-            ("repeat", REPEAT_KEYWORDS),
-        )
-        stt.unsubscribe()
-        if response == "repeat" and attempt == 0:
-            continue
-        return
+            tts.speak(
+                "Sorry, I didn't catch that. Press 'ready' to start, or 'explain' to hear the rules again.",
+                animated=True,
+            )
 
 
 def _wait_for_setup_done(tts: "TextToSpeech", stt: "SpeechToText") -> None:
@@ -680,8 +672,7 @@ def run_scenario(
 
     # ── 3. Phase 2 — Rules Explanation ──────────────────────────────────
     _sphase("rules")
-    tablet.show_webview(_build_tablet_url(dashboard_url, "rules.html", "", on_robot))
-    _explain_rules(tts, stt)
+    _explain_rules(tts, stt, tablet, dashboard_url, on_robot)
 
     # ──────────────────────────────────────────────────────────────────────────────
     #  4. Phase 3 — Choose level

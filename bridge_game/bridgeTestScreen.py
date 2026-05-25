@@ -569,7 +569,7 @@ def end_session(tts, anim, tablet, leds):
     return
 
 class BridgeGame:
-    level = {
+    PROBLEM = [{
             "id": "junior",
             "description": "Junior level: Build a bridge with 3 blocks, but one block is missing!",
             "hints": [
@@ -577,9 +577,9 @@ class BridgeGame:
                 "Try placing one block on the left and one on the right, then balance the third block on top to connect them!",
             ],
             "solution_keywords": ["yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go"]
-            },
+            }]
     
-    def get_problem(self, level): return self.PROBLEMS[level]
+    def get_problem(self, level): return self.PROBLEM[level]
 
     def check_solution(self, answer, problem):
         if not answer:

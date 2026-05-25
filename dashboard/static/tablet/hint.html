@@ -80,7 +80,7 @@
         <button
           id="hint-button"
           class="btn-hint-ui btn-action-hint"
-          onclick="triggerHint()"
+          onclick="sendAction('hint')"
         >
           Get Hint
         </button>
@@ -101,24 +101,6 @@
       "
     ></script>
     <script>
-      let hintsUsed = 0;
-
-      function triggerHint() {
-        if (hintsUsed < 2) {
-          hintsUsed++;
-          document.getElementById("hint-counter").textContent = hintsUsed;
-
-          // Alert backend framework to speak/act out the corresponding hint index
-          sendAction("hint");
-
-          if (hintsUsed >= 2) {
-            const hintBtn = document.getElementById("hint-button");
-            hintBtn.disabled = true;
-            hintBtn.textContent = "No More Hints Available";
-          }
-        }
-      }
-
       function sendAction(act) {
         const payload = { action: act };
         console.log("Transmitting state update:", payload);

@@ -102,7 +102,7 @@ RULES_BODY_1  = (
 )
 RULES_BODY_2  = (
     "They can walk along flat surfaces and up or down stairs — but they can't jump or "
-    "climb straight walls. Take a look at my tablet while I explain."
+    "climb straight walls. "
 )
 RULES_PROMPT  = (
     "- Got it? Say 'ready' when you want to start, or 'explain' if you'd like to hear that again."

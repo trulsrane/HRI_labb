@@ -80,7 +80,7 @@ SETUP_INTRO = (
     "Before we start building, we need to set up the starting position. Take a look at "
     "my tablet — place the towers and the pick out the blocks exactly like the image."
 )
-SETUP_PROMPT = "Let me know when it matches the picture by pressing the ready button."
+SETUP_PROMPT = "Let me know when it matches the picture by pressing the 'done' button."
 SETUP_NUDGE  = (
     "Take your time! I'm showing the starting position on my tablet. Press ready when the "
     "towers match the picture."

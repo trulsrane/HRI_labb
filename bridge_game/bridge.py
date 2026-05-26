@@ -105,7 +105,7 @@ RULES_BODY_2  = (
     "climb straight walls. "
 )
 RULES_PROMPT  = (
-    "- Got it? Say 'ready' when you want to start, or 'explain' if you'd like to hear that again."
+    "- Got it? Say 'go' when you want to start, or 'explain' if you'd like to hear that again."
 )
 RULES_FALLBACK = (
     "If you're unsure, let's just try the starter level and you'll pick it up as we go!"
@@ -617,7 +617,7 @@ def game_round(tts, stt, leds, problem, dashboard_url: str,
             level_names = ["Starter", "Junior", "Expert", "Master"]
             level_img = [
                 "https://people.cs.umu.se/~id23sem/bridgegame_img/Beginner_sol.jpg",
-                "https://people.cs.umu.se/~id23sem/bridgegame_img/Medium_sol.jpg",
+                "https://people.cs.umu.se/~id23sem/bridgegame_img/challenge.jpg",
                 "https://people.cs.umu.se/~id23sem/bridgegame_img/Hard_sol.jpg",
                 "https://people.cs.umu.se/~id23sem/bridgegame_img/Master_sol.jpg"
             ]
@@ -689,8 +689,8 @@ class BridgeGame:
         "id": "junior",
         "description": "Junior level: Build a bridge with 3 blocks, but one block is missing!",
         "hints": [
-            "You can use the two blocks to create a sloped bridge.",
-            "Try placing one block on the left and one on the right, then balance the third block on top to connect them!",
+            "Try placing one of the blue blocks between the red towers.",
+            "Try balancing the green block on top of the blue and red block.",
         ],
         "solution_keywords": ["yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go"],
     }
@@ -827,7 +827,7 @@ def run_scenario(
     _slog("scenario_start", detail=f"on_robot={on_robot}")
     _log("Setting up robot…")
     posture.stand()
-    # awareness.start()
+    awareness.start()
     camera.start()
     time.sleep(1.0)
 
@@ -903,7 +903,7 @@ def run_scenario(
 
     level = 2  # Junior (kept as a 1-based number for legacy memory.raiseEvent shape)
     selected_name = "Junior"
-    selected_img  = "https://people.cs.umu.se/~id23sem/bridgegame_img/Medium.jpg"
+    selected_img  = "https://people.cs.umu.se/~id23sem/bridgegame_img/challenge_sol.jpg"
 
     tts.speak(f"Let's set up level {selected_name}.", animated=True)
 
@@ -1070,7 +1070,7 @@ def main() -> None:
                 (leds.off,                 "LEDs off"),
                 (tablet.hide,              "tablet hide"),
                 (lambda: posture.stand(speed=0.5), "posture stand"),
-                # (PepperSession.enable_autonomous_life, "autonomous life restore"),
+                (PepperSession.enable_autonomous_life, "autonomous life restore"),
                 (PepperSession.disconnect, "session disconnect"),
             ]:
                 try:

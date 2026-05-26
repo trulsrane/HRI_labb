@@ -70,10 +70,6 @@
         class="level-sol-img"
         alt="Loading solution image..."
       />
-      <div id="display-label" class="level-title">Loading Solution...</div>
-      <p style="font-size: 1.5rem; margin: 10px 0">
-        Does this match your solution?
-      </p>
 
       <div class="button-container">
         <button class="btn-sol btn-yes" onclick="sendAction('yes')">
@@ -93,7 +89,7 @@
         // Baseline fallback settings to guard against missing URL strings on localhost
         let labelValue = "Junior Solution";
         let imgValue =
-          "https://people.cs.umu.se/~id23sem/bridgegame_img/Medium_sol.jpg";
+          "https://people.cs.umu.se/~id23sem/bridgegame_img/challenge.jpg";
 
         // Check if query parameters are present in the browser bar
         if (currentURL.includes("label=")) {

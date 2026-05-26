@@ -425,6 +425,7 @@ def game_round(tts, leds, problem, dashboard_url: str, tablet: object, anim, lev
     hint_index = 0
 
     while True:
+        tablet.show_webview(_build_tablet_url(dashboard_url, "hint.html", "", on_robot))
         _listen_begin()
         try:
             t_input = _choice_queue.get(block=True)
@@ -504,8 +505,8 @@ class BridgeGame:
         "id": "junior",
         "description": "Junior level: Build a bridge with 3 blocks, but one block is missing!",
         "hints": [
-            "You can use the two blocks to create a sloped bridge.",
-            "Try placing one block on the left and one on the right",
+            "Try placing one of the blue blocks between the red towers.",
+            "Try balancing the green block on top of the blue and red block.",
         ],
         "solution_keywords": ["yes", "yeah", "yep", "sure", "ready", "ok", "okay", "go"],
     }
@@ -549,6 +550,7 @@ def run_scenario(
     _slog("scenario_start", detail=f"on_robot={on_robot}")
     _log("Setting up robot…")
     posture.stand()
+    awareness.start()
     camera.start()
     time.sleep(1.0)
 
@@ -614,7 +616,7 @@ def run_scenario(
     _led(leds, "happy")
 
     level_name = "Junior"
-    level_img = "https://people.cs.umu.se/~id23sem/bridgegame_img/Medium.jpg"
+    level_img = "https://people.cs.umu.se/~id23sem/bridgegame_img/challenge_sol.jpg"
 
     tts.speak(f"Let's set up level {level_name}.", animated=True)
 
@@ -759,6 +761,7 @@ def main() -> None:
                 (leds.off,                 "LEDs off"),
                 (tablet.hide,              "tablet hide"),
                 (lambda: posture.stand(speed=0.5), "posture stand"),
+                (PepperSession.enable_autonomous_life, "autonomous life restore"),
                 (PepperSession.disconnect, "session disconnect"),
             ]:
                 try:

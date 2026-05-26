@@ -1,0 +1,112 @@
+sep=,
+ts,kind,phase,event_type,role,text,detail,duration_ms
+2026-05-26 15:11:52,event,,scenario_meta,,,,
+2026-05-26 15:12:09,event,setup,phase_start,,,,
+2026-05-26 15:12:09,event,setup,scenario_start,,,on_robot=True,
+2026-05-26 15:12:13,event,await_person,phase_start,,,,
+2026-05-26 15:12:30,event,await_person,person_detected,,,,
+2026-05-26 15:12:31,event,greeting,phase_start,,,,
+2026-05-26 15:12:51,event,greeting,stt_listen_start,,,,
+2026-05-26 15:12:55,event,greeting,stt_heard,,,yes,3269
+2026-05-26 15:12:55,event,greeting,classified,,,result=yes,
+2026-05-26 15:12:55,event,rules,phase_start,,,,
+2026-05-26 15:12:55,dialog,greeting,,user,yes,,
+2026-05-26 15:13:19,event,rules,stt_listen_start,,,,
+2026-05-26 15:13:28,event,rules,stt_heard,,,oh,8437
+2026-05-26 15:13:28,event,rules,classified,,,result=unmatched,
+2026-05-26 15:13:28,dialog,rules,,user,oh,,
+2026-05-26 15:13:35,event,rules,stt_listen_start,,,,
+2026-05-26 15:13:38,event,rules,stt_heard,,,read the,3191
+2026-05-26 15:13:38,event,rules,classified,,,result=unmatched,
+2026-05-26 15:13:38,dialog,rules,,user,read the,,
+2026-05-26 15:13:44,event,rules,stt_listen_start,,,,
+2026-05-26 15:13:46,event,rules,stt_heard,,,and the,2080
+2026-05-26 15:13:46,event,rules,classified,,,result=unmatched,
+2026-05-26 15:13:46,dialog,rules,,user,and the,,
+2026-05-26 15:13:53,event,rules,stt_listen_start,,,,
+2026-05-26 15:13:56,event,rules,stt_heard,,,thor,2521
+2026-05-26 15:13:56,event,rules,classified,,,result=unmatched,
+2026-05-26 15:13:56,dialog,rules,,user,thor,,
+2026-05-26 15:14:03,event,rules,stt_listen_start,,,,
+2026-05-26 15:14:13,event,rules,stt_heard,,,oh go,10514
+2026-05-26 15:14:13,dialog,rules,,user,oh go,,
+2026-05-26 15:14:14,event,rules,classified,,,result=ready,
+2026-05-26 15:14:14,event,level_select,phase_start,,,,
+2026-05-26 15:14:19,event,level_select,level_confirmed,,,name=Junior,
+2026-05-26 15:14:19,event,setup_board,phase_start,,,,
+2026-05-26 15:14:35,event,setup_board,stt_listen_start,,,,
+2026-05-26 15:14:49,event,setup_board,stt_heard,,,fit,13172
+2026-05-26 15:14:49,event,setup_board,classified,,,result=unmatched,
+2026-05-26 15:14:49,dialog,setup_board,,user,fit,,
+2026-05-26 15:14:56,event,setup_board,stt_listen_start,,,,
+2026-05-26 15:14:59,event,setup_board,stt_heard,,,and i just,2585
+2026-05-26 15:14:59,event,setup_board,classified,,,result=unmatched,
+2026-05-26 15:14:59,dialog,setup_board,,user,and i just,,
+2026-05-26 15:15:14,event,setup_board,stt_listen_start,,,,
+2026-05-26 15:15:20,event,setup_board,stt_heard,,,art,6211
+2026-05-26 15:15:20,event,setup_board,classified,,,result=unmatched,
+2026-05-26 15:15:20,dialog,setup_board,,user,art,,
+2026-05-26 15:15:28,event,setup_board,stt_listen_start,,,,
+2026-05-26 15:15:31,event,setup_board,stt_heard,,,yes,2369
+2026-05-26 15:15:31,event,setup_board,classified,,,result=unmatched,
+2026-05-26 15:15:31,dialog,setup_board,,user,yes,,
+2026-05-26 15:15:33,event,solving,phase_start,,,,
+2026-05-26 15:15:51,event,solving,stt_listen_start,,,,
+2026-05-26 15:16:06,event,solving,stt_silence,,,,15242
+2026-05-26 15:16:07,event,solving,stt_listen_start,,,,
+2026-05-26 15:16:22,event,solving,stt_silence,,,,15322
+2026-05-26 15:16:23,event,solving,silent_hint_trigger,,,silent_count=2,
+2026-05-26 15:16:26,event,solving,hint_given,,,index=0,
+2026-05-26 15:16:33,event,solving,stt_listen_start,,,,
+2026-05-26 15:16:48,event,solving,stt_silence,,,,15162
+2026-05-26 15:16:50,event,solving,stt_listen_start,,,,
+2026-05-26 15:17:05,event,solving,stt_heard,,,pete,15097
+2026-05-26 15:17:05,dialog,solving,,user,pete,,
+2026-05-26 15:17:09,event,solving,stt_listen_start,,,,
+2026-05-26 15:17:17,event,solving,stt_heard,,,hey,7831
+2026-05-26 15:17:17,dialog,solving,,user,hey,,
+2026-05-26 15:17:21,event,solving,stt_listen_start,,,,
+2026-05-26 15:17:27,event,solving,stt_heard,,,think he,5880
+2026-05-26 15:17:27,dialog,solving,,user,think he,,
+2026-05-26 15:17:31,event,solving,stt_listen_start,,,,
+2026-05-26 15:17:36,event,solving,stt_heard,,,to read,4628
+2026-05-26 15:17:36,dialog,solving,,user,to read,,
+2026-05-26 15:17:39,event,solving,stt_listen_start,,,,
+2026-05-26 15:17:42,event,solving,stt_heard,,,he chemist,2713
+2026-05-26 15:17:42,dialog,solving,,user,he chemist,,
+2026-05-26 15:17:46,event,solving,stt_listen_start,,,,
+2026-05-26 15:17:51,event,solving,stt_heard,,,bennett,5195
+2026-05-26 15:17:51,dialog,solving,,user,bennett,,
+2026-05-26 15:17:55,event,solving,stt_listen_start,,,,
+2026-05-26 15:17:57,event,solving,stt_heard,,,they,2322
+2026-05-26 15:17:57,dialog,solving,,user,they,,
+2026-05-26 15:18:02,event,solving,stt_listen_start,,,,
+2026-05-26 15:18:05,event,solving,stt_heard,,,go,3439
+2026-05-26 15:18:05,dialog,solving,,user,go,,
+2026-05-26 15:18:10,event,solving,stt_listen_start,,,,
+2026-05-26 15:18:16,event,solving,stt_heard,,,a,6436
+2026-05-26 15:18:16,dialog,solving,,user,a,,
+2026-05-26 15:18:20,event,solving,stt_listen_start,,,,
+2026-05-26 15:18:28,event,solving,stt_heard,,,finn,8050
+2026-05-26 15:18:28,dialog,solving,,user,finn,,
+2026-05-26 15:18:33,event,solving,stt_listen_start,,,,
+2026-05-26 15:18:35,dialog,solving,,user,image,,
+2026-05-26 15:18:36,event,solving,stt_heard,,,image,2486
+2026-05-26 15:18:39,event,solving,stt_listen_start,,,,
+2026-05-26 15:18:44,event,solving,stt_heard,,,just finished,4773
+2026-05-26 15:18:44,event,solving,user_finished,,,hints_used=1,
+2026-05-26 15:18:44,dialog,solving,,user,just finished,,
+2026-05-26 15:18:47,event,solution_check,phase_start,,,,
+2026-05-26 15:18:55,event,solution_check,stt_listen_start,,,,
+2026-05-26 15:19:03,event,solution_check,stt_heard,,,oh,7074
+2026-05-26 15:19:03,event,solution_check,classified,,,result=unmatched,
+2026-05-26 15:19:03,dialog,solution_check,,user,oh,,
+2026-05-26 15:19:07,event,solution_check,stt_listen_start,,,,
+2026-05-26 15:19:09,event,solution_check,stt_heard,,,yes,2452
+2026-05-26 15:19:09,event,solution_check,classified,,,result=match,
+2026-05-26 15:19:09,dialog,solution_check,,user,yes,,
+2026-05-26 15:19:10,event,solution_check,solution_compared,,,matched=True,
+2026-05-26 15:19:10,event,celebrate,phase_start,,,,
+2026-05-26 15:19:10,event,celebrate,outcome,,,same,
+2026-05-26 15:19:17,event,end,phase_start,,,,
+2026-05-26 15:19:25,event,end,scenario_end,,,,

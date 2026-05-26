@@ -7,8 +7,8 @@
     <link rel="stylesheet" href="base.css" />
     <style>
       body {
-        background: #111;
-        color: white;
+        background: #ffffff;
+        color: rgb(0, 0, 0);
         text-align: center;
         overflow: auto;
       }
@@ -36,17 +36,15 @@
   <body>
     <div class="page">
       <img src="" id="display-img" class="picked-level-img" />
-      <div id="display-label" class="level-title"></div>
-      <p style="font-size: 1.5rem">Follow the picture to set up the bridge!</p>
     </div>
 
     <script>
       // Read variables from the URL (?label=Starter&img=...)
       const params = new URLSearchParams(window.location.search);
-      const label = params.get("label");
+      //const label = params.get("label");
       const img = params.get("img");
 
-      if (label) document.getElementById("display-label").textContent = label;
+      //if (label) document.getElementById("display-label").textContent = label;
       if (img) document.getElementById("display-img").src = img;
     </script>
   </body>

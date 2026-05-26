@@ -1,0 +1,67 @@
+sep=,
+ts,kind,phase,event_type,role,text,detail,duration_ms
+2026-05-26 15:41:23,event,,scenario_meta,,,,
+2026-05-26 15:41:39,event,setup,phase_start,,,,
+2026-05-26 15:41:39,event,setup,scenario_start,,,on_robot=True,
+2026-05-26 15:41:41,event,await_person,phase_start,,,,
+2026-05-26 15:41:59,event,await_person,person_detected,,,,
+2026-05-26 15:42:00,event,greeting,phase_start,,,,
+2026-05-26 15:42:18,event,greeting,stt_listen_start,,,,
+2026-05-26 15:42:20,event,greeting,stt_heard,,,yes,2085
+2026-05-26 15:42:20,event,greeting,classified,,,result=yes,
+2026-05-26 15:42:20,dialog,greeting,,user,yes,,
+2026-05-26 15:42:21,event,rules,phase_start,,,,
+2026-05-26 15:42:44,event,rules,stt_listen_start,,,,
+2026-05-26 15:42:49,event,rules,stt_heard,,,guns,4897
+2026-05-26 15:42:49,event,rules,classified,,,result=unmatched,
+2026-05-26 15:42:49,dialog,rules,,user,guns,,
+2026-05-26 15:42:56,event,rules,stt_listen_start,,,,
+2026-05-26 15:42:59,event,rules,stt_heard,,,red star,3292
+2026-05-26 15:42:59,event,rules,classified,,,result=unmatched,
+2026-05-26 15:42:59,dialog,rules,,user,red star,,
+2026-05-26 15:43:07,event,rules,stt_listen_start,,,,
+2026-05-26 15:43:11,event,rules,stt_heard,,,read do,3966
+2026-05-26 15:43:11,event,rules,classified,,,result=unmatched,
+2026-05-26 15:43:11,dialog,rules,,user,read do,,
+2026-05-26 15:43:18,event,rules,stt_listen_start,,,,
+2026-05-26 15:43:22,event,rules,stt_heard,,,to sorry,4004
+2026-05-26 15:43:22,event,rules,classified,,,result=unmatched,
+2026-05-26 15:43:22,dialog,rules,,user,to sorry,,
+2026-05-26 15:43:28,event,rules,stt_listen_start,,,,
+2026-05-26 15:43:32,event,rules,stt_heard,,,reading just,4288
+2026-05-26 15:43:32,event,rules,classified,,,result=unmatched,
+2026-05-26 15:43:32,dialog,rules,,user,reading just,,
+2026-05-26 15:43:40,event,rules,stt_listen_start,,,,
+2026-05-26 15:43:42,event,rules,stt_heard,,,can start,2366
+2026-05-26 15:43:42,event,rules,classified,,,result=ready,
+2026-05-26 15:43:42,event,level_select,phase_start,,,,
+2026-05-26 15:43:42,dialog,rules,,user,can start,,
+2026-05-26 15:43:48,event,level_select,level_confirmed,,,name=Junior,
+2026-05-26 15:43:48,event,setup_board,phase_start,,,,
+2026-05-26 15:44:03,event,setup_board,stt_listen_start,,,,
+2026-05-26 15:44:18,event,setup_board,stt_heard,,,fished,15017
+2026-05-26 15:44:18,event,setup_board,classified,,,result=unmatched,
+2026-05-26 15:44:18,dialog,setup_board,,user,fished,,
+2026-05-26 15:44:25,event,setup_board,stt_listen_start,,,,
+2026-05-26 15:44:28,event,setup_board,stt_heard,,,an issue,2310
+2026-05-26 15:44:28,event,setup_board,classified,,,result=unmatched,
+2026-05-26 15:44:28,dialog,setup_board,,user,an issue,,
+2026-05-26 15:44:42,event,setup_board,stt_listen_start,,,,
+2026-05-26 15:44:46,event,setup_board,stt_heard,,,finished,3369
+2026-05-26 15:44:46,event,setup_board,classified,,,result=done,
+2026-05-26 15:44:46,dialog,setup_board,,user,finished,,
+2026-05-26 15:44:49,event,solving,phase_start,,,,
+2026-05-26 15:45:06,event,solving,stt_listen_start,,,,
+2026-05-26 15:45:13,event,solving,stt_heard,,,finish,6830
+2026-05-26 15:45:13,event,solving,user_finished,,,hints_used=0,
+2026-05-26 15:45:13,dialog,solving,,user,finish,,
+2026-05-26 15:45:15,event,solution_check,phase_start,,,,
+2026-05-26 15:45:22,event,solution_check,stt_listen_start,,,,
+2026-05-26 15:45:25,event,solution_check,stt_heard,,,no,3192
+2026-05-26 15:45:25,event,solution_check,classified,,,result=diff,
+2026-05-26 15:45:25,dialog,solution_check,,user,no,,
+2026-05-26 15:45:26,event,solution_check,solution_compared,,,matched=False,
+2026-05-26 15:45:26,event,celebrate,phase_start,,,,
+2026-05-26 15:45:26,event,celebrate,outcome,,,unique,
+2026-05-26 15:45:35,event,end,phase_start,,,,
+2026-05-26 15:45:44,event,end,scenario_end,,,,

@@ -61,10 +61,6 @@
         class="picked-level-img"
         alt="Loading level image..."
       />
-      <div id="display-label" class="level-title">Loading Level...</div>
-      <p style="font-size: 1.5rem; margin: 10px 0">
-        Follow the picture to set up the bridge and pick out the right blocks!
-      </p>
 
       <button class="btn-ready" onclick="sendAction('done')">Ready!</button>
     </div>
@@ -78,7 +74,7 @@
         // Baseline fallback settings to guard against missing URL strings
         let labelValue = "Junior Level";
         let imgValue =
-          "https://people.cs.umu.se/~id23sem/bridgegame_img/Medium.jpg";
+          "https://people.cs.umu.se/~id23sem/bridgegame_img/challenge_sol.jpg";
 
         // Check if query parameters are present in the browser bar
         if (currentURL.includes("label=")) {
